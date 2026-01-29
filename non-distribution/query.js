@@ -24,13 +24,29 @@ The simplest way to use existing components is to call them using execSync.
 For example, `execSync(`echo "${input}" | ./c/process.sh`, {encoding: 'utf-8'});`
 */
 
-
 const fs = require('fs');
 const {execSync} = require('child_process');
 const path = require('path');
 
-
 function query(indexFile, args) {
+  const input = args.join(' ');
+  const normalized = execSync(`echo ${input} | ./c/process.sh | ./c/stem.js | tr '\\n' ' '`, {encoding: 'utf-8'}).trim();
+  // console.log(normalized)
+  if (normalized.length == 0) {
+    console.log('');
+    return;
+  }
+  fs.readFile(indexFile, 'utf-8', (err, data) => {
+    if (err) {
+      console.error('Error reading file:', err);
+      return;
+    }
+    const globalIndex = data.split('\n');
+    // console.log(globalIndex);
+    const matches = globalIndex.filter((line) => line.includes(normalized));
+    // console.log(matches);
+    console.log(matches.join('\n'));
+  });
 }
 
 const args = process.argv.slice(2); // Get command-line arguments
@@ -39,5 +55,5 @@ if (args.length < 1) {
   process.exit(1);
 }
 
-const indexFile = 'd/global-index.txt'; // Path to the global index file
+const indexFile = path.join(__dirname, 'd', 'global-index.txt'); // Path to the global index file
 query(indexFile, args);

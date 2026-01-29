@@ -1,0 +1,31 @@
+algorithm | /docs/article3.html 8 /docs/article5.html 6 /docs/quick-algo.html 3
+and | /docs/article2.html 42 /docs/article4.html 41 /docs/article1.html 40 /docs/article5.html 39 /docs/article3.html 38 /docs/physics.html 38 /docs/cookbook.html 35 /docs/quick-algo.html 3 /docs/crypto-brief.html 2
+baking | /docs/cookbook.html 15
+bitcoin | /docs/crypto-brief.html 1
+blockchain | /docs/crypto-brief.html 2
+complexity | /docs/article5.html 4 /docs/quick-algo.html 2
+cooking | /docs/cookbook.html 18
+cryptocurrency | /docs/crypto-brief.html 2
+data | /docs/article1.html 20 /docs/article2.html 18 /docs/article3.html 16 /docs/article4.html 14
+entanglement | /docs/physics.html 8
+flour | /docs/cookbook.html 12
+in | /docs/physics.html 35 /docs/article2.html 32 /docs/article4.html 31 /docs/article1.html 30 /docs/article5.html 29 /docs/article3.html 28 /docs/cookbook.html 28
+ingredients | /docs/cookbook.html 20
+learning | /docs/article1.html 15 /docs/article2.html 13
+machine | /docs/article1.html 12 /docs/article2.html 10
+machine learning | /docs/article1.html 10 /docs/article2.html 8
+mechanics | /docs/physics.html 18
+of | /docs/physics.html 42 /docs/article5.html 38 /docs/article2.html 37 /docs/article3.html 36 /docs/article1.html 35 /docs/article4.html 34 /docs/cookbook.html 30
+paper | /docs/article3.html 8 /docs/article2.html 7 /docs/article1.html 6 /docs/article5.html 6 /docs/article4.html 5
+particle | /docs/physics.html 10
+quantum | /docs/physics.html 15
+quantum mechanics | /docs/physics.html 12
+recipe | /docs/cookbook.html 25
+research | /docs/article2.html 9 /docs/article1.html 8 /docs/article3.html 7 /docs/article4.html 6 /docs/article5.html 5
+science | /docs/article1.html 10 /docs/article4.html 8
+sorting | /docs/article3.html 5 /docs/quick-algo.html 2
+sugar | /docs/cookbook.html 10
+superposition | /docs/physics.html 7
+the | /docs/article3.html 52 /docs/article1.html 50 /docs/article2.html 48 /docs/article5.html 47 /docs/article4.html 45 /docs/physics.html 45 /docs/cookbook.html 40 /docs/quick-algo.html 4 /docs/crypto-brief.html 3
+to | /docs/physics.html 30 /docs/article2.html 27 /docs/article4.html 26 /docs/article1.html 25 /docs/article3.html 24 /docs/article5.html 23
+wave | /docs/physics.html 6

@@ -10,7 +10,7 @@ DIFF=${DIFF:-diff}
 url="https://cs.brown.edu/courses/csci1380/sandbox/1/level_1a/index.html"
 
 
-if $DIFF <(cat "$T_FOLDER"/d/d5.txt | c/invert.sh $url | sed 's/[[:space:]]//g' | sort) <(cat "$T_FOLDER"/d/d6.txt | sed 's/[[:space:]]//g' | sort) >&2;
+if $DIFF <(cat "$T_FOLDER"/d/d5.txt | node c/invert.js $url | sed 's/[[:space:]]//g' | sort) <(cat "$T_FOLDER"/d/d6.txt | sed 's/[[:space:]]//g' | sort) >&2;
 then
     echo "$0 success: inverted indices are identical"
     exit 0

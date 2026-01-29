@@ -14,7 +14,7 @@ files=("$T_FOLDER"/d/m{1..3}.txt)
 
 for file in "${files[@]}"
 do
-    cat "$file" | c/merge.js d/global-index.txt > d/temp-global-index.txt
+    cat "$file" | c/merge.js d/global-index.txt 'true'> d/temp-global-index.txt
     mv d/temp-global-index.txt d/global-index.txt
 done
 

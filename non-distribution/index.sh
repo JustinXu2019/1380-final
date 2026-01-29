@@ -7,5 +7,5 @@ cat "$1" |
   c/stem.js |
   c/combine.sh |
   c/invert.sh "$2" |
-  c/merge.js d/global-index.txt |
+  c/merge.js d/global-index.txt|
   sort -o d/global-index.txt

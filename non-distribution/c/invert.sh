@@ -4,4 +4,6 @@
 
 # Usage: n-grams > ./invert.sh url
 
-sort | uniq -c | awk '{print $2,$3,$4,"|",$1,"|"}' | sed 's/\s\+/ /g' | sort | sed "s|$| $1|"
+# sort | uniq -c | awk '{print $2,$3,$4,"|",$1,"|"}' | sed 's/\s\+/ /g' | sort | sed "s|$| $1|"
+
+node c/invert.js "$1"

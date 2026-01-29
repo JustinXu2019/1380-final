@@ -11,3 +11,6 @@
 # Tip: Make sure your program doesn't emit a non-zero exit code if there are no words left after removing stopwords.
 # You can combine the grep invocation with `|| true` to achieve this. Be careful though, as this will also hide other errors!
 
+# tr -c '[:alpha:]' '\n' | tr '[:upper:]' '[:lower:]' | iconv -f utf-8 -t ascii | grep -Fwv -f ./d/stopwords.txt || true
+
+node c/process.js

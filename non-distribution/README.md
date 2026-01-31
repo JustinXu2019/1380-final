@@ -42,3 +42,36 @@ The code inside `non-distribution` is organized as follows:
 
 To submit your solution, run `./scripts/submit.sh` from the root of the stencil. This will create a
 `submission.zip` file which you can upload to the autograder.
+
+# M0: Setup & Centralized Computing
+
+> Add your contact information below and in `package.json`.
+
+* name: `Justin Xu`
+
+* email: `justin_xu@brown.edu`
+
+* cslogin: `jxu287`
+
+
+## Summary
+
+> My implementation consisted of filling out the required files and I attempted the extra credit. I implemented merge.js in a very inefficient way where I just threw multiple data structures and called many sorts over and over. The most challenging aspect was implementing TF-IDF. I did not know where to implement it at first and how to incorporate it into my existing code. However the implementation which I ended up doing was adding an extra argument to merge.js. My tf-idf implementation also does not change the format in which frequencies are displayed in the global index, however TF-IDF affects the way urls are sorted. I implemented this by getting a count of all the monograms in the incoming content and counting all the monograms in the existing global index. Then using these numbers I calculated TF and IDF respectively and at the end of merge it checks if the argument was there and sorts the global index by tf-idf instead of word frequency. I also did not enjoy writing tests because thinking of edge cases is hard. 
+
+
+
+## Correctness & Performance Characterization
+
+
+> Describe how you characterized the correctness and performance of your implementation.
+
+
+To characterize correctness, we developed `6` that test the following cases: tf-idf, empty/invalid imputs for getURL, getText, process, stem, and query.
+
+
+*Performance*: The throughput of various subsystems is described in the `"throughput"` portion of package.json. The characteristics of my development machines are summarized in the `"dev"` portion of package.json.
+
+
+## Wild Guess
+
+> How many lines of code do you think it will take to build the fully distributed, scalable version of your search engine? Add that number to the `"dloc"` portion of package.json, and justify your answer below.

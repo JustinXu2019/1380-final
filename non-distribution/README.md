@@ -74,4 +74,4 @@ To characterize correctness, we developed `6` that test the following cases: tf-
 
 ## Wild Guess
 
-> How many lines of code do you think it will take to build the fully distributed, scalable version of your search engine? Add that number to the `"dloc"` portion of package.json, and justify your answer below.
+> I believe that it would take around 4500 lines of code to complete a distributed and scaleable version of my search engine. I think the backend portion migh only take 1.5k lines of code but the front end and user interface depending on the number of features can drastically increase the number of lines of code written. 

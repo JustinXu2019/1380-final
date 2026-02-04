@@ -10,28 +10,54 @@ const distribution = require('../../distribution.js')();
 require('../helpers/sync-guard');
 
 test('(1 pts) student test', () => {
-  // Fill out this test case...
-    throw new Error('Not implemented');
+  // numbers test
+  const negative = -20
+  const serialized = distribution.util.serialize(negative);
+  const deserialized = distribution.util.deserialize(serialized);
+  expect(deserialized).toEqual(negative);
 });
 
 
 test('(1 pts) student test', () => {
-  // Fill out this test case...
-    throw new Error('Not implemented');
+  // string test
+  const specialString = "Line one\nLine two\tTabbed \"Quotes\"";
+  const serialized = distribution.util.serialize(specialString);
+  const deserialized = distribution.util.deserialize(serialized);
+  expect(deserialized).toBe(specialString);
 });
 
 
 test('(1 pts) student test', () => {
-  // Fill out this test case...
-    throw new Error('Not implemented');
+  // null test
+  const obj = { emptyArr: [], emptyObj: {}, emptyStr: "" };
+  const serialized = distribution.util.serialize(obj);
+  const deserialized = distribution.util.deserialize(serialized);
+  
+  expect(deserialized.emptyArr).toEqual([]);
+  expect(deserialized.emptyObj).toEqual({});
+  expect(deserialized.emptyStr).toBe("");
 });
 
 test('(1 pts) student test', () => {
-  // Fill out this test case...
-    throw new Error('Not implemented');
+  const object = {
+    "123": "numeric key",
+    "has spaces": true,
+    "": "empty key"
+  };
+  const serialized = distribution.util.serialize(object);
+  const deserialized = distribution.util.deserialize(serialized);
+  
+  expect(deserialized["123"]).toBe("numeric key");
+  expect(deserialized[""]).toBe("empty key");
 });
 
 test('(1 pts) student test', () => {
-  // Fill out this test case...
-    throw new Error('Not implemented');
+  // undefined test
+  const array = [1, , , 4];
+  const serialized = distribution.util.serialize(array);
+  const deserialized = distribution.util.deserialize(serialized);
+  
+  expect(deserialized.length).toBe(4);
+  expect(deserialized[1]).toBeUndefined();
+  expect(1 in deserialized).toBe(false);
 });

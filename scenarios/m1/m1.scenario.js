@@ -8,7 +8,7 @@ test('(3 pts) (scenario) 40 bytes object', () => {
           will result in a string that is 40 bytes in size.
       */
   let object = null;
-
+  object = {human: {name: "Justin", eyes: "red"}}
   const serialized = util.serialize(object);
   expect(serialized.length).toEqual(40);
 });
@@ -16,8 +16,8 @@ test('(3 pts) (scenario) 40 bytes object', () => {
 test('(3 pts) (scenario) expected object', () => {
   /* Prepare an object so it results in an expected serialized string. */
   let object = null;
-
-  let serializedObject = ''; /* Add here the expected serialized string by using util.serialize */
+  object = {employee: {name: "Justin", salary: null}}
+  let serializedObject = `{"employee":{"name":"Justin","salary":null}}`; /* Add here the expected serialized string by using util.serialize */
   expect(util.serialize(object)).toEqual(serializedObject);
 });
 
@@ -28,8 +28,7 @@ test('(3 pts) (scenario) string deserialized into target object', () => {
       */
 
   let string = null;
-
-
+  string = '{"a": 1, "b": "two", "c": false}'
   const object = {a: 1, b: 'two', c: false};
   const deserialized = util.deserialize(string);
   expect(object).toEqual(deserialized);
@@ -39,7 +38,8 @@ test('(3 pts) (scenario) object with all supported data types', () => {
 /* Come up with an object that uses all valid (serializable)
     built-in data types supported by the serialization library. */
   let object = null;
-
+  f = (a, b) => (a + b);
+  object = [[], new Date(), new Error("inside array"), new Object(), true, f, null, 67, {}, "something", undefined]
   const setTypes = [];
   for (const k in object) {
     setTypes.push(typeof object[k]);
@@ -73,7 +73,7 @@ test('(3 pts) (scenario) malformed serialized string', () => {
 /* Come up with a string that is not a valid serialized object. */
 
   let malformedSerializedString = null;
-
+  malformedSerializedString = "something\nsomething\here where"
 
   expect(() => {
     util.deserialize(malformedSerializedString);

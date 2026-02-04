@@ -1,4 +1,5 @@
 // @ts-check
+const { performance } = require('perf_hooks');
 
 /**
  * @param {any} object
@@ -67,6 +68,68 @@ function deserialize(string) {
   });
   return parsed;
 }
+
+const ITERATIONS = 1000;
+const reportStore = []; // In-memory storage for final reporting
+
+function runBenchmark(name, data) {
+    let totalSer = 0;
+    let totalDes = 0;
+
+    // Warm-up (helps V8 optimize the code before measurement)
+    for (let j = 0; j < 100; j++) {
+        deserialize(serialize(data));
+    }
+
+    for (let i = 0; i < ITERATIONS; i++) {
+        const s0 = performance.now();
+        const json = serialize(data);
+        const s1 = performance.now();
+
+        const d0 = performance.now();
+        deserialize(json);
+        const d1 = performance.now();
+
+        totalSer += (s1 - s0);
+        totalDes += (d1 - d0);
+    }
+
+    reportStore.push({
+        test: name,
+        avgSer: (totalSer / ITERATIONS).toFixed(5),
+        avgDes: (totalDes / ITERATIONS).toFixed(5),
+        size: Buffer.byteLength(serialize(data))
+    });
+}
+
+// --- Test 1: Primitives ---
+runBenchmark("Small Primitives", { id: 1, name: "test", active: true, val: undefined });
+
+// --- Test 2: Function Objects ---
+runBenchmark("Functions", { 
+    fn: (a, b) => a + b, 
+    nested: { fn2: () => "hello" } 
+});
+
+// --- Test 3: Complex Structures (Varying Sizes) ---
+const complexBase = {
+    date: new Date(),
+    err: new Error("fail"),
+    list: [1, 2, 3]
+};
+runBenchmark("Complex (Small)", complexBase);
+
+// Scaling up for "Varying Sizes" requirement
+const largeData = Array.from({ length: 500 }, (_, i) => ({
+    id: i,
+    timestamp: new Date(),
+    error: new Error(`Error ${i}`),
+    meta: { active: i % 2 === 0 }
+}));
+runBenchmark("Complex (Large/Array)", largeData);
+
+// --- Final Output ---
+console.table(reportStore);
 
 module.exports = {
   serialize,

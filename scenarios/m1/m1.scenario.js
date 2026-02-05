@@ -8,7 +8,7 @@ test('(3 pts) (scenario) 40 bytes object', () => {
           will result in a string that is 40 bytes in size.
       */
   let object = null;
-  object = {human: {name: "Justin", eyes: "red"}}
+  object = "123456789012";
   const serialized = util.serialize(object);
   expect(serialized.length).toEqual(40);
 });
@@ -16,8 +16,8 @@ test('(3 pts) (scenario) 40 bytes object', () => {
 test('(3 pts) (scenario) expected object', () => {
   /* Prepare an object so it results in an expected serialized string. */
   let object = null;
-  object = {employee: {name: "Justin", salary: null}}
-  let serializedObject = `{"employee":{"name":"Justin","salary":null}}`; /* Add here the expected serialized string by using util.serialize */
+  object = { a: null }
+  let serializedObject = '{"type":"object","value":{"a":{"type":"null","value":""}}}'; /* Add here the expected serialized string by using util.serialize */
   expect(util.serialize(object)).toEqual(serializedObject);
 });
 
@@ -28,8 +28,8 @@ test('(3 pts) (scenario) string deserialized into target object', () => {
       */
 
   let string = null;
-  string = '{"a": 1, "b": "two", "c": false}'
-  const object = {a: 1, b: 'two', c: false};
+  string = '{"type":"object","value":{"a":{"type":"number","value":"1"}}}';
+  const object = { a: 1 };
   const deserialized = util.deserialize(string);
   expect(object).toEqual(deserialized);
 });

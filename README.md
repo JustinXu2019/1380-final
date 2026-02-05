@@ -126,3 +126,21 @@ distribution.node.start(() => {
 # Results and Reflections
 
 > ...
+# M1: Serialization / Deserialization
+
+
+## Summary
+
+> My implementation of serialization and deserialization was built on top of the existing JSON.stringify() and JSON.parse() methods. It was 2 components totaling about 51 lines of code in total. In both functions, I utilized the second parameter which was the replacer and reviver function respectively. The replacer function in serialize was used to check for all the edge cases which the method did not account for or would error for and would in return stringify my own custom object. Then in the reviver function it would parse through the string and check for my custom objects to handle the cases which the JSON.parse() method does not inherently check for. The biggest challenge for me was serializing Date() objects in a way which I could later deserialize them. This is because if an object has a .toJSON method instead of being passed to the replacer function, .toJSON is immediately called so the object becomes a string without allowing me to turn it into my own object. To fix this problem I had to convert the replacer function from an arrow function to a regular function in order to use the this keyword. 
+
+
+## Correctness & Performance Characterization
+
+
+> Describe how you characterized the correctness and performance of your implementation
+
+
+*Correctness*: For correctness I wrote 5 tests which test for negative numbers, special characters such as new lines "\n", test for empty objects/strings, special keys, and arrays that have gaps in them. 
+
+
+*Performance*: To test performance, I wrote 4 tests in order to test for basic, functions, and complext types of various sizes. I then run serialize and deserialize tests 1000 times in order to get the average latency. With the time from the latency I am also able to calculate the throughput.

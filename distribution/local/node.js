@@ -6,6 +6,7 @@
 const http = require('node:http');
 const url = require('node:url');
 const log = require('../util/log.js');
+const util = require('/usr/src/app/distribution/util/serialization.js');
 
 const yargs = require('yargs/yargs');
 
@@ -79,21 +80,26 @@ function setNodeConfig() {
  * @param {(err?: Error | null) => void} callback
  * @returns {void}
  */
+const nodeState = {
+  messageCount: 0,
+}
 function start(callback) {
   const server = http.createServer((req, res) => {
+    nodeState.messageCount += 1;
+    if (req.method !== 'PUT') {
+        res.writeHead(405, { 
+          'Allow': 'PUT',
+          'Content-Type': 'application/json' 
+        });
+        
+        const errorResponse = new Error(`Method ${req.method} Not Allowed`);
+        return res.end(util.serialize(errorResponse));
+    }
     /* Your server will be listening for PUT requests. */
-
-    // Write some code...
-
-
     /*
       The path of the http request will determine the service to be used.
       The url will have the form: http://node_ip:node_port/service/method
     */
-
-    // Write some code...
-
-
     /*
       A common pattern in handling HTTP requests in Node.js is to have a
       subroutine that collects all the data chunks belonging to the same
@@ -107,27 +113,44 @@ function start(callback) {
 
       Our nodes expect data in JSON format.
     */
-
-    // Write some code...
-
     /** @type {any[]} */
     const body = [];
 
     req.on('data', (chunk) => {
+      body.push(chunk);
     });
 
     req.on('end', () => {
-
       /*
         Here, you can handle the service requests.
         Use the local routes service to get the service you need to call.
         You need to call the service with the method and arguments provided in the request.
         Then, you need to serialize the result and send it back to the caller.
       */
-
-      // Write some code...
-
-    });
+      // console.log(req.method);
+      const parsed = req.url.split('/');
+      const service = parsed[2];
+      const method = parsed[3];
+      const dataString = Buffer.concat(body).toString();
+      const deseriazlied = util.deserialize(dataString);
+      const args = (deseriazlied && deseriazlied.args) ? deseriazlied.args : [null];
+      distribution.local.routes.get(service, (err, serviceObj) => {
+        if (err || !serviceObj || !serviceObj[method]) {
+          res.writeHead(404);
+          const responsePayload = [new Error("Service or method not found"), null];
+          res.write(util.serialize(responsePayload));
+          return res.end();
+        } else {
+          serviceObj[method](...args, (e, v) => {
+              const responsePayload = [e, v];
+              const serialized = util.serialize(responsePayload);
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.write(serialized);
+              return res.end();
+            })
+          } 
+        })
+      });
   });
 
   /*
@@ -154,4 +177,4 @@ function start(callback) {
   server.listen(config.port, config.ip);
 }
 
-module.exports = {start, config: setNodeConfig()};
+module.exports = {start, config: setNodeConfig(), nodeState};

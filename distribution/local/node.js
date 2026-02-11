@@ -6,7 +6,7 @@
 const http = require('node:http');
 const url = require('node:url');
 const log = require('../util/log.js');
-const util = require('/usr/src/app/distribution/util/serialization.js');
+const util = require('../util/serialization.js');
 
 const yargs = require('yargs/yargs');
 

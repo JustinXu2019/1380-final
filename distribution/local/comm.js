@@ -5,7 +5,7 @@
  */
 
 const http = require('node:http');
-const util = require('/usr/src/app/distribution/util/serialization.js');
+const util = require('../util/serialization.js');
 
 /**
  * @typedef {Object} Target

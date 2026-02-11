@@ -3,7 +3,7 @@
   "version": "0.2.30",
   "description": "A library for building distributed systems.",
   "main": "distribution.js",
-  "useLibrary": false,
+  "useLibrary": true,
   "directories": {
     "test": "test"
   },
@@ -59,22 +59,34 @@
     },
     {
       "milestone": "M2",
-      "hours": 999,
-      "loc": 999,
+      "hours": 12,
+      "loc": 496,
       "dev": {
-        "cpu-no": 999,
-        "mem-gb": 999,
-        "ssd-gb": 999
+        "cpu-no": "Apple M4",
+        "mem-gb": 512,
+        "ssd-gb": 512
       },
       "throughput": {
-        "dev": [],
-        "aws": []
+        "dev": [
+          {"comm": "822.3 requests/second"},
+          {"rpc": "531.17 requests/second"}
+        ],
+        "aws": [
+          {"comm": "661.81 requests/second"},
+          {"rpc": "259.93 requests/second"}
+        ]
       },
       "latency": {
-        "dev": [],
-        "aws": []
+        "dev": [
+          {"comm": "1.22ms per request"},
+          {"rpc": "1198ms"}
+        ],
+        "aws": [
+          {"comm": "1.51ms"},
+          {"rpc": "2408ms average"}
+        ]
       },
-      "dloc": -99
+      "dloc": 3000
     },
     {
       "milestone": "M3",

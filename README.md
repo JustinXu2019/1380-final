@@ -144,3 +144,33 @@ distribution.node.start(() => {
 
 
 *Performance*: To test performance, I wrote 4 tests in order to test for basic, functions, and complext types of various sizes. I then run serialize and deserialize tests 1000 times in order to get the average latency. With the time from the latency I am also able to calculate the throughput.
+
+
+# M2: Actors and Remote Procedure Calls (RPC)
+
+
+## Summary
+
+> Summarize your implementation, including key challenges you encountered. Remember to update the `report` section of the `package.json` file with the total number of hours it took you to complete each task of M2 (`hours`) and the lines of code per task.
+
+
+
+My implementation comprises 6 software components, totaling 496 lines of code and about 12 hours of work. I started with status.get() which was created with conditionals to pick the correct output. My implementation of route consisted of adding, removing, and selecting from the distribution.local object which contains all the imports/services. My implementation of comm consists of creating a http PUT request and handles the output within the callback function that receives a response. Finally my node implementation consists of constructing the sent data and all the parsing/response creation is done in the req.on('end') portion. The most challenging portions of this assignment for me was comm and node. Comm was challenging because I didn't realize that the output should be handled by the callback function in http.request(). It was also difficult to include error handling because I had to figure out where to place the errors. Node was challenging because while I could recieve the http request I did not know how to construct a response and it took me a while to figure out how to use route.js to call the requested service method. Finally, implementing the tests were extremely difficult because I did not account for erronious inputs and had to add that to my implementation of status, routes, and comm. 
+
+
+## Correctness & Performance Characterization
+
+> Describe how you characterized the correctness and performance of your implementation
+
+
+*Correctness*: I wrote 12 tests; these tests take 5 seconds to execute. I mostly tested for erronious inputs for all of the functions I had to implement. This meant creating a default base case. The last 2 tests are for testing the throuhgput and latency of my implementation of comm and the library's implementation of rpc. 
+
+
+*Performance*: I characterized the performance of comm and RPC by sending 1000 service requests in a tight loop. Average throughput and latency is recorded in `package.json`.
+
+
+## Key Feature
+
+> How would you explain the implementation of `createRPC` to someone who has no background in computer science — i.e., with the minimum jargon possible?
+
+The createRPC implementation is like a vending machine. You push a button to get something and that button tells the vending machine what you want to get, the vending machine then moves to the thing you want, and finally it gives you the thing you ordered. 

@@ -7,6 +7,9 @@
   "directories": {
     "test": "test"
   },
+  "jest": {
+    "testTimeout": 15000
+  },
   "devDependencies": {
     "eslint": "^8.55.0",
     "eslint-config-google": "^0.14.0",

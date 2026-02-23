@@ -129,12 +129,13 @@ function start(callback) {
       */
       // console.log(req.method);
       const parsed = req.url.split('/');
+      const gid = parsed[1];
       const service = parsed[2];
       const method = parsed[3];
       const dataString = Buffer.concat(body).toString();
       const deseriazlied = util.deserialize(dataString);
-      const args = (deseriazlied && deseriazlied.args) ? deseriazlied.args : [null];
-      distribution.local.routes.get(service, (err, serviceObj) => {
+      const args = (deseriazlied && deseriazlied.args) ? deseriazlied.args : [];
+      distribution.local.routes.get({service: service, gid: 'local'}, (err, serviceObj) => {
         if (err || !serviceObj || !serviceObj[method]) {
           res.writeHead(404);
           const responsePayload = [new Error("Service or method not found"), null];

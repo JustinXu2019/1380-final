@@ -90,12 +90,12 @@
     },
     {
       "milestone": "M3",
-      "hours": 999,
-      "loc": 999,
+      "hours": 10,
+      "loc": 244,
       "dev": {
-        "cpu-no": 999,
-        "mem-gb": 999,
-        "ssd-gb": 999
+        "cpu-no": "Apple M4",
+        "mem-gb": 512,
+        "ssd-gb": 512
       },
       "throughput": {
         "dev": [],
@@ -105,7 +105,7 @@
         "dev": [],
         "aws": []
       },
-      "dloc": -99
+      "dloc": 2500
     },
     {
       "milestone": "M4",

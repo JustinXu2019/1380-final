@@ -29,9 +29,39 @@ function comm(config) {
    * @param {Callback} callback
    */
   function send(message, configuration, callback) {
-    callback(new Error('comm.send not implemented'));
+    distribution.local.groups.get(context.gid, (e, v) => {
+      let errors = {};
+      let res = {};
+      if (e) {
+        return callback(e, res);
+      }
+      const numNodes = Object.keys(v);
+      if (numNodes.length === 0) {
+        return callback(new Error(`Group ${context.gid} is empty`), null);
+      }
+      let count = 0;
+      numNodes.forEach(id => {
+        let node = v[id];
+        let remote = {
+          service: configuration.service,
+          gid: configuration.gid,
+          method: configuration.method,
+          node: node,
+        }
+        distribution.local.comm.send(message, remote, (e, v) => {
+          if (e) {
+            errors[id] = e;
+          } else {
+            res[id] = v;
+          }
+          count ++;
+          if (count === numNodes.length) {
+            return callback(errors, res);
+          }
+        });
+      });
+    })
   }
-
   return {send};
 }
 

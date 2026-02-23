@@ -9,23 +9,30 @@
  * @returns {void}
  */
 function get(configuration, callback) {
-  const local = distribution.local;
+  if (!configuration) {
+    return callback(new Error("no route.get() configuration provided"));
+  }
+  
+  const isString = typeof configuration === 'string';
+  const name = isString ? configuration : configuration.service;
+  const gid = isString ? 'local' : (configuration.gid || 'local');
+
   let res = null;
   let err = null;
-  if (!configuration) {
-    err = new Error("no route.get() configuration provided");
+
+  try {
+    if (distribution.local && distribution.local[name]) {
+      res = distribution.local[name];
+    } else if (gid !== 'local' && distribution[gid] && distribution[gid][name]) {
+      res = distribution[gid][name];
+    } else {
+      err = new Error(`Service ${name} not found`);
+    }
+  } catch (e) {
+    err = e;
   }
-  const name = typeof configuration === 'string' ? configuration : configuration.service;
-  if (local[name]) {
-    res = local[name];
-  } else {
-    err = new Error("invalid route.get() service");
-  }
-  if (!callback) {
-    let cb = (err, res) => err ? console.error(err) : console.log(res);
-    cb(err, res);
-  }
-  callback(err, res);
+
+  return callback(err, res);
 }
 
 /**

@@ -174,3 +174,34 @@ My implementation comprises 6 software components, totaling 496 lines of code an
 > How would you explain the implementation of `createRPC` to someone who has no background in computer science — i.e., with the minimum jargon possible?
 
 The createRPC implementation is like a vending machine. You push a button to get something and that button tells the vending machine what you want to get, the vending machine then moves to the thing you want, and finally it gives you the thing you ordered. 
+
+
+# M3: Node Groups & Gossip Protocols
+
+
+## Summary
+
+> Summarize your implementation, including key challenges you encountered. Remember to update the `report` section of the `package.json` file with the total number of hours it took you to complete each task of M3 (`hours`) and the lines of code per task.
+
+My implementation comprises `<number>` new software components, totaling `<number>` added lines of code over the previous implementation. Key challenges included `<1, 2, 3 + how you solved them>`.
+
+My implementation consisted of the distributed comm, group, routes, and status. I also implemented the local groups and modified comm, routes, and node. It took around 244 lines of code and around 10 hours to complete. A challenge which I encountered was trying to understand how each node has their own "view" of the system. This was solved when I realize that the way the implementation of our system works is by giving each group their own individual functions to each node can just have their own local view by having some sort of data structure to help keep track. 
+
+
+## Correctness & Performance Characterization
+
+> Describe how you characterized the correctness and performance of your implementation
+
+
+*Correctness* -- number of tests and time they take. I wrote 5 tests and they take around 1 second to exectue. 
+
+
+*Performance* -- spawn times (all students) and gossip (lab/ec-only).
+Per-node spawn latency~150–400 msAverage latency (6 nodes)~250 ms/nodeTotal elapsed (6 nodes sequential)~1 500 msThroughput (sequential)~4 nodes/sec
+
+
+## Key Feature
+
+> What is the point of having a gossip protocol? Why doesn't a node just send the message to _all_ other nodes in its group?
+
+The point of having a gossip protocol is scalability. If a node has to send a message to _all_ other nodes it would be a O(n) operation where n is the number of nodes. But with the gossip protocol allows you to send much less messages to achieve the same result. Also if you broadcast to all nodes but one node happens to be down it can just get the message from another node when it comes back on the next gossip.

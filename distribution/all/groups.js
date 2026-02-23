@@ -25,7 +25,12 @@ function groups(config) {
    * @param {Callback} callback
    */
   function put(config, group, callback) {
-    return callback(new Error('groups.put not implemented'));
+    distribution.local.groups.put(config, group, (e, v) => {
+      let confg = {service: 'groups', method: 'put'};
+      distribution[context.gid].comm.send([config, group], confg, (e, v) => {
+        callback(e || {}, v);
+      })
+    })
   }
 
   /**
@@ -33,7 +38,12 @@ function groups(config) {
    * @param {Callback} callback
    */
   function del(name, callback) {
-    return callback(new Error('groups.del not implemented'));
+    distribution.local.groups.del(name, (e, v) => {
+      let confg = {service: 'groups', method: 'del'};
+      distribution[context.gid].comm.send([name], confg, (e, v) => {
+        callback(e || {}, v);
+      })
+    })
   }
 
   /**
@@ -41,7 +51,10 @@ function groups(config) {
    * @param {Callback} callback
    */
   function get(name, callback) {
-    return callback(new Error('groups.get not implemented'));
+    let remoteConfig = {service: 'groups', method: 'get'};
+    distribution[context.gid].comm.send([name], remoteConfig, (errors, values) => {
+      callback(errors || {}, values);
+    });
   }
 
   /**
@@ -50,7 +63,12 @@ function groups(config) {
    * @param {Callback} callback
    */
   function add(name, node, callback) {
-    return callback(new Error('groups.add not implemented'));
+    distribution.local.groups.get(name, (e, v) => {
+      if (e) return callback(e, null);
+      const sid = distribution.util.id.getSID(node);
+      const updatedGroup = {...v, [sid]: node};
+      put(name, updatedGroup, callback);
+    });
   }
 
   /**
@@ -59,7 +77,12 @@ function groups(config) {
    * @param {Callback} callback
    */
   function rem(name, node, callback) {
-    return callback(new Error('groups.rem not implemented'));
+      distribution.local.groups.get(name, (e, v) => {
+      if (e) return callback(e, null);
+      const updatedGroup = {...v};
+      delete updatedGroup[node];
+      put(name, updatedGroup, callback);
+    });
   }
 
   return {

@@ -22,7 +22,15 @@ function routes(config) {
    * @param {Callback} callback
    */
   function put(service, name, callback) {
-    return callback(new Error('routes.put not implemented'));
+    const remoteConfig = { 
+      service: 'routes', 
+      method: 'put', 
+      gid: 'local' 
+    };
+
+    distribution[context.gid].comm.send([service, name], remoteConfig, (errors, values) => {
+      callback(errors || {}, values);
+    });
   }
 
   /**
@@ -30,7 +38,15 @@ function routes(config) {
    * @param {Callback} callback
    */
   function rem(configuration, callback) {
-    return callback(new Error('routes.rem not implemented'));
+    const remoteConfig = { 
+      service: 'routes', 
+      method: 'rem', 
+      gid: 'local'
+    };
+
+    distribution[context.gid].comm.send([configuration], remoteConfig, (errors, values) => {
+      callback(errors || {}, values);
+    });
   }
 
   return {put, rem};

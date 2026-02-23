@@ -62,18 +62,20 @@ const distribution = useLibrary ? require('@brown-ds/distribution') : bootstrap;
 
 /* The following code is run when distribution.js is invoked directly */
 if (require.main === module) {
+  // globalThis.distribution = distribution();
+  // globalThis.distribution.node.start(globalThis.distribution.node.config.onStart || (() => {
+  //   // Start REPL for interactive use
+  //   const repl = require('node:repl');
+  //   repl.start({
+  //     prompt: `${globalThis.distribution.util.id.getSID(globalThis.distribution.node.config)}> `,
+  //     input: process.stdin,
+  //     output: process.stdout,
+  //     terminal: true,
+  //     useGlobal: true,
+  //   });
+  // }));
   globalThis.distribution = distribution();
-  globalThis.distribution.node.start(globalThis.distribution.node.config.onStart || (() => {
-    // Start REPL for interactive use
-    const repl = require('node:repl');
-    repl.start({
-      prompt: `${globalThis.distribution.util.id.getSID(globalThis.distribution.node.config)}> `,
-      input: process.stdin,
-      output: process.stdout,
-      terminal: true,
-      useGlobal: true,
-    });
-  }));
+  globalThis.distribution.node.start(globalThis.distribution.node.config.onStart || (() => {}));
 }
 
 module.exports = distribution;

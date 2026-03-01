@@ -25,7 +25,7 @@ test('(5 pts) (scenario) use the local store', (done) => {
 });
 
 
-test('(5 pts) (scenario) hash functions return different nodes', () => {
+test('(5 pts) (scenario) two keys map to the same node', () => {
   /*
 
         Identify two keys that consistentHash maps to the same node. You will
@@ -56,11 +56,12 @@ test('(5 pts) (scenario) hash functions return different nodes', () => {
 test('(5 pts) (scenario) hash functions return the same node', () => {
   /*
 
-        Identify a key for which the three hash functions agree about its placement.
+        Identify a key for which two hash functions agree about its placement.
         You will likely need to try a few (but not many) keys.
 
     */
 
+  // Feel free to change the nodes (both their number and configuration)
   const nodeIds = [
     util.id.getNID({ip: '192.168.0.1', port: 8000}),
     util.id.getNID({ip: '192.168.0.2', port: 8000}),
@@ -72,12 +73,10 @@ test('(5 pts) (scenario) hash functions return the same node', () => {
 
   const kid = util.id.getID(key);
 
-  const a = util.id.naiveHash(kid, nodeIds);
-  const b = util.id.rendezvousHash(kid, nodeIds);
-  const c = util.id.consistentHash(kid, nodeIds);
+  let a = util.id.consistentHash(kid, nodeIds); // You can also experiment with other hash functions
+  let b = '?'; // Pick one of the other hash functions
 
-  expect(a).toEqual(a);
-  expect(b).toEqual(c);
+  expect(a).toEqual(b);
 });
 
 const n1 = {ip: '127.0.0.1', port: 9001};
@@ -116,7 +115,7 @@ test('(5 pts) (scenario) use mem.reconf', (done) => {
 
         // Remove a node from the group...
         let toRemove = '?';
-        distribution.mygroup.groups.rem(
+        distribution.local.groups.rem(
             'mygroup',
             id.getSID(toRemove),
             (e, v) => {
@@ -149,6 +148,96 @@ test('(5 pts) (scenario) use mem.reconf', (done) => {
 
       // Write checks for the rest of the items...
       done(); // Only call `done()` once all checks are written
+    });
+  };
+});
+
+test('(5 pts) (scenario) redistribute keys and values among nodes', (done) => {
+  /*
+    This scenario simulates the "Shuffle" phase of MapReduce with multiple keys.
+
+    Setup:
+    - n1 has local results: { 'jcarb': 'one', 'lc': 'three' }
+    - n2 has local results: { 'jcarb': 'two' }
+
+    Goal:
+    - 'jcarb' should be aggregated to ['one', 'two']
+    - 'lc' should be aggregated to ['three']
+
+    Your Task:
+    1. Fetch the local values from n1 and n2.
+    2. For every key-value pair found, use `shuffleGroup.store.append` to
+       send it to the correct destination in the distributed system.
+
+    This forces you to trust the hashing mechanism: you don't know where
+    'jcarb' or 'lc' will end up, but `append` will route them correctly.
+  */
+
+  const shuffleGroup = {};
+  shuffleGroup[id.getSID(n1)] = n1;
+  shuffleGroup[id.getSID(n2)] = n2;
+  shuffleGroup[id.getSID(n3)] = n3;
+
+  // The "map output" data scattered across nodes
+  const n1Data = {'jcarb': 'one', 'lc': 'three'};
+  const n2Data = {'jcarb': 'two'};
+
+  distribution.local.groups.put('shuffleGroup', shuffleGroup, (e, v) => {
+    // Helper to seed local storage (simulating map output)
+    const seed = (node, data, callback) => {
+      const entries = Object.entries(data);
+      let pending = entries.length;
+      if (pending === 0) return callback();
+
+      entries.forEach(([k, v]) => {
+        const remote = {node: node, service: 'store', method: 'put'};
+        const config = {key: k, gid: 'local'};
+        distribution.local.comm.send([v, config], remote, (e, v) => {
+          if (--pending === 0) {
+            return callback();
+          }
+        });
+      });
+    };
+
+    // Seed n1 and n2, then run solution
+    seed(n1, n1Data, () => {
+      seed(n2, n2Data, () => {
+        runSolution();
+      });
+    });
+  });
+
+  const runSolution = () => {
+    // Helper to process a single node's data
+    const processNode = (node, dataToProcess, callback) => {
+      const entries = Object.entries(dataToProcess);
+    };
+
+    // Process n1's data, then n2's data, and finlly check the results
+    processNode(n1, n1Data, () => {
+      processNode(n2, n2Data, () => {
+        check();
+      });
+    });
+  };
+
+  const check = () => {
+    // Check 'jcarb' aggregation
+    distribution.shuffleGroup.store.get('jcarb', (e, v) => {
+      try {
+        expect(e).toBeFalsy();
+        // What do you expect the value to be?
+
+        // Check 'lc' aggregation
+        distribution.shuffleGroup.store.get('lc', (e, v) => {
+          expect(e).toBeFalsy();
+          // What do you expect the value to be?
+          done();
+        });
+      } catch (error) {
+        done(error);
+      }
     });
   };
 });

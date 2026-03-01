@@ -1,3 +1,14 @@
+// @ts-check
+/**
+ * @typedef {import("../types.js").Callback} Callback
+ *
+ * @typedef {Object} StoreConfig
+ * @property {string | null} key
+ * @property {string | null} gid
+ *
+ * @typedef {StoreConfig | string | null} SimpleConfig
+ */
+
 
 /**
  * @param {any} state
@@ -14,7 +25,7 @@ function put(state, configuration, callback) {
  * @param {Callback} callback
  */
 function append(state, configuration, callback) {
-  return callback(new Error('mem.append not implemented'));
+  return callback(new Error('mem.append not implemented')); // You'll need to implement this method for the distributed processing milestone.
 };
 
 /**

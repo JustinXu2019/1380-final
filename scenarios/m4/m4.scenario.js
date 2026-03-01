@@ -75,7 +75,7 @@ test('(5 pts) (scenario) hash functions return the same node', () => {
   const kid = util.id.getID(key);
 
   let a = util.id.consistentHash(kid, nodeIds); // You can also experiment with other hash functions
-  let b = '?'; // Pick one of the other hash functions
+  let b = util.id.naiveHash(kid, nodeIds); // Pick one of the other hash functions
 
   expect(a).toEqual(b);
 });
@@ -121,11 +121,7 @@ test('(5 pts) (scenario) use mem.reconf', (done) => {
         const groupCopy = {...mygroupGroup};
 
         // Remove a node from the group...
-<<<<<<< Updated upstream
-        let toRemove = '?';
-=======
         let toRemove = n1;
->>>>>>> Stashed changes
         distribution.local.groups.rem(
             'mygroup',
             id.getSID(toRemove),
@@ -222,9 +218,6 @@ test('(5 pts) (scenario) redistribute keys and values among nodes', (done) => {
   const runSolution = () => {
     // Helper to process a single node's data
     const processNode = (node, dataToProcess, callback) => {
-<<<<<<< Updated upstream
-      const entries = Object.entries(dataToProcess);
-=======
         const entries = Object.entries(dataToProcess);
         let pending = entries.length;
         if (pending === 0) return callback();
@@ -236,7 +229,6 @@ test('(5 pts) (scenario) redistribute keys and values among nodes', (done) => {
           }
         });
       });
->>>>>>> Stashed changes
     };
 
     // Process n1's data, then n2's data, and finlly check the results

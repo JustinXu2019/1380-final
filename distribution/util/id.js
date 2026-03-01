@@ -72,10 +72,39 @@ const naiveHash = (kid, nids) => {
 
 /** @type { Hasher } */
 const consistentHash = (kid, nids) => {
+  const mapping = new Map();
+  const bigIntNids = nids.map(nid => {
+    const b = idToNum(nid);
+    mapping.set(b, nid);
+    return b;
+  });
+
+  const kidNum = idToNum(kid);
+  bigIntNids.push(kidNum);
+  bigIntNids.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+
+  const kidIdx = bigIntNids.indexOf(kidNum);
+  
+  const targetIdx = (kidIdx + 1) % bigIntNids.length;
+  const resultBigInt = bigIntNids[targetIdx];
+
+  return mapping.get(resultBigInt);
 };
 
 /** @type { Hasher } */
 const rendezvousHash = (kid, nids) => {
+  const weightedNodes = nids.map(nid => {
+    const combined = `${kid}${nid}`;
+    const weight = idToNum(getID(combined));
+    return { nid, weight };
+  });
+  weightedNodes.sort((a, b) => {
+    if (a.weight < b.weight) return -1;
+    if (a.weight > b.weight) return 1;
+    return 0;
+  });
+  const maxNode = weightedNodes[weightedNodes.length - 1];
+  return maxNode.nid;
 };
 
 module.exports = {

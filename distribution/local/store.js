@@ -15,6 +15,16 @@
   Use the `path` module for that.
 */
 
+const path = require('node:path');
+const fs = require('fs');
+const id = distribution.util.id;
+const ROOT_STORE_DIR = path.resolve(process.cwd(), 'store');
+const nid = id.getNID(globalThis.distribution.node.config);
+const NODE_SPECIFIC_DIR = path.join(ROOT_STORE_DIR, `node_${nid}`);
+
+if (!fs.existsSync(NODE_SPECIFIC_DIR)) {
+  fs.mkdirSync(NODE_SPECIFIC_DIR, { recursive: true });
+}
 
 /**
  * @param {any} state
@@ -22,7 +32,31 @@
  * @param {Callback} callback
  */
 function put(state, configuration, callback) {
-  return callback(new Error('store.put not implemented'));
+  let key;
+  let first;
+  let second;
+  let err = null;
+  let res = null;
+  if (configuration !== null && typeof configuration === 'object') {
+    first = configuration.gid === null ? null : configuration.gid;
+    second = configuration.key ? configuration.key : id.getID(state);
+    second = second.replace(/[^a-zA-Z0-9]/g, '');
+    key = first + "::" + second;
+  } else {
+    first = null;
+    second = configuration ? configuration : id.getID(state);
+    second = second.replace(/[^a-zA-Z0-9]/g, '');
+    key = first + "::" + second;
+  }
+  let finalPath = path.join(NODE_SPECIFIC_DIR, key);
+  fs.writeFile(finalPath, distribution.util.serialize(state), (error) => {
+    if (error) {
+      err = error;
+      return callback(err, res);
+    } else {
+      return callback(err, state);
+    }
+  });
 }
 
 /**
@@ -30,7 +64,31 @@ function put(state, configuration, callback) {
  * @param {Callback} callback
  */
 function get(configuration, callback) {
-  return callback(new Error('store.get not implemented'));
+  let key;
+  let first;
+  let second;
+  let err = null;
+  let res = null;
+  if (configuration !== null && typeof configuration === 'object') {
+    first = configuration.gid === null ? null : configuration.gid;
+    second = configuration.key ? configuration.key : id.getID(state);
+    second = second.replace(/[^a-zA-Z0-9]/g, '');
+    key = first + "::" + second;
+  } else {
+    first = null;
+    second = configuration ? configuration : id.getID(state);
+    second = second.replace(/[^a-zA-Z0-9]/g, '');
+    key = first + "::" + second;
+  }
+  let finalPath = path.join(NODE_SPECIFIC_DIR, key);
+  fs.readFile(finalPath, (error, data) => {
+    if (error) {
+      err = new Error(`Error is ${error}`);
+      return callback(err, res);
+    } else {
+      return callback(err, distribution.util.deserialize(data.toString()));
+    }
+  })
 }
 
 /**
@@ -38,7 +96,39 @@ function get(configuration, callback) {
  * @param {Callback} callback
  */
 function del(configuration, callback) {
-  return callback(new Error('store.del not implemented'));
+  let key;
+  let first;
+  let second;
+  let err = null;
+  let res = null;
+  if (configuration !== null && typeof configuration === 'object') {
+    first = configuration.gid === null ? null : configuration.gid;
+    second = configuration.key ? configuration.key : id.getID(state);
+    second = second.replace(/[^a-zA-Z0-9]/g, '');
+    key = first + "::" + second;
+  } else {
+    first = null;
+    second = configuration ? configuration : id.getID(state);
+    second = second.replace(/[^a-zA-Z0-9]/g, '');
+    key = first + "::" + second;
+  }
+  let finalPath = path.join(NODE_SPECIFIC_DIR, key);
+  fs.readFile(finalPath, (rerror, data) => {
+    if (rerror) {
+      err = new Error(`Error is ${rerror}`)
+      return callback(err, res);
+    } else {
+      fs.unlink(finalPath, (derror) => {
+        if (derror) {
+          err = new Error(`Error is ${derror}`);
+          return callback(err, res)
+        } else {
+          res = distribution.util.deserialize(data.toString());
+          return callback(err, res)
+        }
+      })
+    }
+  })
 }
 
 /**

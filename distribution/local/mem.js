@@ -9,6 +9,8 @@
  * @typedef {StoreConfig | string | null} SimpleConfig
  */
 
+const id = distribution.util.id;
+const localmap = {};
 
 /**
  * @param {any} state
@@ -16,7 +18,35 @@
  * @param {Callback} callback
  */
 function put(state, configuration, callback) {
-  return callback(new Error('mem.put not implemented'));
+  let key = '';
+  let first;
+  let second;
+  let err; 
+  let res;
+  if (configuration !== null && typeof configuration === 'object') {
+    first = configuration.gid === null ? 'local' : configuration.gid;
+    second = configuration.key ? configuration.key : id.getID(state);
+    key = first + "::" + second;
+  } else {
+    first = 'local';
+    second = configuration ? configuration : id.getID(state);
+    key = first + "::" + second;
+  }
+  if (key in localmap) {
+    err = null;
+    if (state === localmap[key]) {
+      res = localmap[key]
+    } else {
+      localmap[key] = state;
+      res = localmap[key];
+    }
+    return callback(err, res);
+  } else {
+    localmap[key] = state;
+    err = null;
+    res = localmap[key];
+    return callback(err, res);
+  }
 };
 
 /**
@@ -33,7 +63,29 @@ function append(state, configuration, callback) {
  * @param {Callback} callback
  */
 function get(configuration, callback) {
-  return callback(new Error('mem.get not implemented'));
+  let key = '';
+  let first;
+  let second;
+  let err;
+  let res;
+  if (configuration !== null && typeof configuration === 'object') {
+    first = configuration.gid === null ? 'local' : configuration.gid;
+    second = configuration.key;
+    key = first + "::" + second;
+  } else {
+    first = 'local';
+    second = configuration;
+    key = first + "::" + second;
+  }
+  if (key in localmap) {
+    err = null;
+    res = localmap[key];
+    return callback(err, res);
+  } else {
+    err = new Error('Key not in memory');
+    res = null;
+    return callback(err, res);
+  }
 }
 
 /**
@@ -41,7 +93,30 @@ function get(configuration, callback) {
  * @param {Callback} callback
  */
 function del(configuration, callback) {
-  return callback(new Error('mem.del not implemented'));
+  let key = '';
+  let first;
+  let second;
+  let err;
+  let res;
+  if (configuration !== null && typeof configuration === 'object') {
+    first = configuration.gid === null ? 'local' : configuration.gid;
+    second = configuration.key;
+    key = first + "::" + second;
+  } else {
+    first = 'local';
+    second = configuration;
+    key = first + "::" + second;
+  }
+  if (key in localmap) {
+    err = null;
+    res = localmap[key];
+    delete localmap[key];
+    return callback(err, res);
+  } else {
+    err = new Error('Key not in memory');
+    res = null;
+    return callback(err, res);
+  }
 };
 
 module.exports = {put, get, del, append};

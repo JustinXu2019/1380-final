@@ -101,7 +101,7 @@ test('(1 pts) local.mem.put/del/get(jcarb)', (done) => {
 
 test('(1 pts) local.mem.put(no key)', (done) => {
   const user = {first: 'Josiah', last: 'Carberry'};
-
+  
   distribution.local.mem.put(user, null, (e, v) => {
     distribution.local.mem.get(id.getID(user), (e, v) => {
       try {

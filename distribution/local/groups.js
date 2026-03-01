@@ -36,18 +36,11 @@ function get(name, callback) {
 function put(config, group, callback) {
   let gid;
   let err;
-  if (typeof config === 'object') {
-    gid = config.gid;
-    if (!gid) {
-      err = new Error('Gid cannot be empty');
-      return callback(err, null);
-    }
-  } else {
-    gid = config;
-    if (!gid) {
-      err = new Error('Gid cannot be empty');
-      return callback(err, null)
-    }
+  let actualConfig = typeof config === 'object' ? config : { gid: config };
+  gid = actualConfig.gid;
+
+  if (!gid) {
+    return callback(new Error('Gid cannot be empty'), null);
   }
   for (const [key, value] of Object.entries(group)) {
       if (!key || !value) {
@@ -60,7 +53,7 @@ function put(config, group, callback) {
     for (const [key, value] of Object.entries(group)) {
       groups['all'][key] = value;
     }
-    distribution[gid] = setup({gid});
+    distribution[gid] = setup(actualConfig);
     groups[gid] = group;
     return callback(err, groups[gid])
   } else {

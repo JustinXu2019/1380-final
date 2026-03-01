@@ -36,7 +36,34 @@ function mem(config) {
    * @param {Callback} callback
    */
   function get(configuration, callback) {
-    return callback(new Error('mem.get not implemented'));
+    let key;
+    let gid;
+    let err = null;
+
+    if (typeof configuration === 'string') {
+      key = configuration;
+      gid = context.gid;
+    } else if (configuration !== null && typeof configuration === 'object') {
+      key = configuration.key;
+      gid = configuration.gid || context.gid;
+    }
+
+    if (!key) {
+      err = new Error('Key is required');
+      return callback(err, null);
+    }
+
+    distribution.local.groups.get(gid, (e, v) => {
+      const nids = Object.values(v).map((n) => distribution.util.id.getNID(n));
+      const kid = distribution.util.id.getID(key);
+      const nodeId = context.hash(kid, nids);
+      const node = Object.values(v).find((n) => distribution.util.id.getNID(n) === nodeId);
+      const remote = {node, service: 'mem', method: 'get'}
+      const config = {key: key, gid: gid};
+      distribution.local.comm.send([config], remote, (e, v) => {
+        callback(e, v);
+      })
+    })
   }
 
   /**
@@ -44,8 +71,38 @@ function mem(config) {
    * @param {SimpleConfig} configuration
    * @param {Callback} callback
    */
-  function put(state, configuration, callback) {
-    return callback(new Error('mem.put not implemented'));
+  function put(state, configuration, callback) {  
+    let key;
+    let gid = context.gid;
+    let err = null;
+
+    if (typeof configuration === 'string') {
+      key = configuration;
+      gid = context.gid;
+    } else if (configuration !== null && typeof configuration === 'object') {
+      key = configuration.key;
+      gid = configuration.gid || context.gid;
+    } else if (configuration === null) {
+      key = distribution.util.id.getID(state);
+    }
+
+
+
+    distribution.local.groups.get(gid, (e, v) => {
+      if (e) {
+        return callback(e, null);
+      }
+      const nids = Object.values(v).map((n) => distribution.util.id.getNID(n));
+      let kid;
+      kid = distribution.util.id.getID(key);
+      const nodeId = context.hash(kid, nids);
+      const node = Object.values(v).find((n) => distribution.util.id.getNID(n) === nodeId);
+      const remote = {node, service: 'mem', method: 'put'}
+      const config = {key: key, gid: gid};
+      distribution.local.comm.send([state, config], remote, (e, v) => {
+        callback(e, v);
+      })
+    })
   }
 
   /**
@@ -62,7 +119,33 @@ function mem(config) {
    * @param {Callback} callback
    */
   function del(configuration, callback) {
-    return callback(new Error('mem.del not implemented'));
+    let key;
+    let gid;
+    let err = null;
+    if (typeof configuration === 'string') {
+      key = configuration;
+      gid = context.gid;
+    } else if (configuration !== null && typeof configuration === 'object') {
+      key = configuration.key;
+      gid = configuration.gid || context.gid;
+    }
+
+    if (!key) {
+      err = new Error('Key is required');
+      return callback(err, null);
+    }
+
+    distribution.local.groups.get(gid, (e, v) => {
+      const nids = Object.values(v).map((n) => distribution.util.id.getNID(n));
+      const kid = distribution.util.id.getID(key);
+      const nodeId = context.hash(kid, nids);
+      const node = Object.values(v).find((n) => distribution.util.id.getNID(n) === nodeId);
+      const remote = {node, service: 'mem', method: 'del'}
+      const config = {key: key, gid: gid};
+      distribution.local.comm.send([config], remote, (e, v) => {
+        callback(e, v);
+      })
+    })
   }
 
   /**

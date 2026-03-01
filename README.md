@@ -205,3 +205,35 @@ Per-node spawn latency~150–400 msAverage latency (6 nodes)~250 ms/nodeTotal el
 > What is the point of having a gossip protocol? Why doesn't a node just send the message to _all_ other nodes in its group?
 
 The point of having a gossip protocol is scalability. If a node has to send a message to _all_ other nodes it would be a O(n) operation where n is the number of nodes. But with the gossip protocol allows you to send much less messages to achieve the same result. Also if you broadcast to all nodes but one node happens to be down it can just get the message from another node when it comes back on the next gossip.
+
+
+# M4: Distributed Storage
+
+
+## Summary
+
+> Summarize your implementation, including key challenges you encountered
+
+
+Remember to update the `report` section of the `package.json` file with the total number of hours it took you to complete each task of M4 (`hours`) and the lines of code per task.
+
+My implementation of M4 consisted of implementing get, put, and del for both the distributed and local mem and store. I also implemented the two hashing functions. This assignment took me around 15 hours and 463 lines of code. A key challenge which I faced was trying to understand the difference between the distributed function's view and the view of the local functions. It was somewhat confusing to wrap my head around calling the local functions and specifying the GIDs to implement the distributed functions. However, the local functions were very straightforward. 
+
+
+## Correctness & Performance Characterization
+
+> Describe how you characterized the correctness and performance of your implementation
+
+
+*Correctness* -- number of tests and time they take. 
+I characterized the correctness of my code by writing 5 tests which all test for erronious inputs for get and delete. This is because I did not implement the extra credit so I decided to throw an error if these functions were invoked without a key parameter. The tests take around 1 second to complete.
+
+
+*Performance* -- insertion and retrieval.
+My performance is characterized by a script I write called perf.js. It pregenerates 1000 items and calls store.put to the 3 aws nodes. Then it calls get and logs the time it takes. The total time for all the puts to complete was around 38422ms and the mean latency was 38.42 ms. The throuhgput was about 26.03 operations a second. Retrieving took around 37914.91ms and the mean latency was 37.91ms with a throuhgput of 26.37. 
+
+
+## Key Feature
+
+> Why is the `reconf` method designed to first identify all the keys to be relocated and then relocate individual objects instead of fetching all the objects immediately and then pushing them to their corresponding locations?
+I believe that the reconf method desinged to first identify all the keys to be relocated and then relocate individual objects is due to memory efficiency. If you fetch all objects first you're loading all the data into memory. By relocating individual objects you only ever hold one object at a time in memory.

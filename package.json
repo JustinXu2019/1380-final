@@ -113,22 +113,22 @@
     },
     {
       "milestone": "M4",
-      "hours": 999,
-      "loc": 999,
+      "hours": 15,
+      "loc": 463,
       "dev": {
-        "cpu-no": 999,
-        "mem-gb": 999,
-        "ssd-gb": 999
+        "cpu-no": "Apple M4",
+        "mem-gb": 512,
+        "ssd-gb": 512
       },
       "throughput": {
         "dev": [],
-        "aws": []
+        "aws": [{"put": "26.03 ops/sec", "get": "26.37 ops/sec"}]
       },
       "latency": {
         "dev": [],
-        "aws": []
+        "aws": [{ "put": "38.14ms mean latency", "get": "37.91ms mean latency"}]
       },
-      "dloc": -99
+      "dloc": 1700
     },
     {
       "milestone": "M5",

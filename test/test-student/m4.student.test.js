@@ -74,12 +74,6 @@ test('(1 pts) student test', (done) => {
   });
 });
 
-
-/*
-  Setup — mirrors the pattern used in the provided test suite.
-  Adjust node ports if they conflict with other test files in your suite.
-*/
-
 const id = distribution.util.id;
 const mygroupNodes = {};
 

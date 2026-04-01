@@ -48,10 +48,18 @@ function mem(config) {
       gid = configuration.gid || context.gid;
     }
 
-    if (!key) {
-      err = new Error('Key is required');
-      return callback(err, null);
+  if (!key) {
+    // If key is null but gid exists, we want to list all keys in that gid across the cluster
+    if (gid) {
+        // This requires a broadcast (comm.send to all nodes in GID) 
+        // to collect keys from everyone.
+        return distribution[gid].comm.send([{key: null, gid: gid}], {service: 'mem', method: 'get'}, (e, v) => {
+            const allKeys = Object.values(v).flat();
+            callback(e, allKeys);
+        });
     }
+    return callback(new Error('Key is required'), null);
+  }
 
     distribution.local.groups.get(gid, (e, v) => {
       const nids = Object.values(v).map((n) => distribution.util.id.getNID(n));
@@ -111,7 +119,36 @@ function mem(config) {
    * @param {Callback} callback
    */
   function append(state, configuration, callback) {
-    return callback(new Error('mem.append not implemented')); // You'll need to implement this method for the distributed processing milestone.
+    // You'll need to implement this method for the distributed processing milestone.
+    let key;
+    let gid = context.gid;
+    if (typeof configuration === 'string') {
+      key = configuration;
+    } else if (configuration !== null && typeof configuration === 'object') {
+      key = configuration.key;
+      gid = configuration.gid || context.gid;
+    }
+
+    if (!key) {
+      return callback(new Error('Key is required for append'), null);
+    }
+
+    distribution.local.groups.get(gid, (e, v) => {
+      if (e || !v) return callback(e || new Error('Group not found'), null);
+
+      const nids = Object.values(v).map((n) => distribution.util.id.getNID(n));
+      const kid = distribution.util.id.getID(key);
+      const nodeId = context.hash(kid, nids);
+      
+      const node = Object.values(v).find((n) => distribution.util.id.getNID(n) === nodeId);
+      
+      const remote = { node, service: 'mem', method: 'append' };
+      const config = { key: key, gid: gid };
+      
+      distribution.local.comm.send([state, config], remote, (err, result) => {
+        callback(err, result);
+      });
+    });
   }
 
   /**

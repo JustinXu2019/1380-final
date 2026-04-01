@@ -132,22 +132,22 @@
     },
     {
       "milestone": "M5",
-      "hours": 999,
-      "loc": 999,
+      "hours": 15,
+      "loc": 200,
       "dev": {
-        "cpu-no": 999,
-        "mem-gb": 999,
-        "ssd-gb": 999
+        "cpu-no": "Apple M4",
+        "mem-gb": 512,
+        "ssd-gb": 512
       },
       "throughput": {
-        "dev": [],
+        "dev": ["Around 25 keys/second"],
         "aws": []
       },
       "latency": {
-        "dev": [],
+        "dev": ["Average time of execution is 121.3 ms"],
         "aws": []
       },
-      "dloc": -99
+      "dloc": 1700
     }
   ]
 }

@@ -237,3 +237,30 @@ My performance is characterized by a script I write called perf.js. It pregenera
 
 > Why is the `reconf` method designed to first identify all the keys to be relocated and then relocate individual objects instead of fetching all the objects immediately and then pushing them to their corresponding locations?
 I believe that the reconf method desinged to first identify all the keys to be relocated and then relocate individual objects is due to memory efficiency. If you fetch all objects first you're loading all the data into memory. By relocating individual objects you only ever hold one object at a time in memory.
+
+# M5: Distributed Execution Engine
+
+
+## Summary
+
+> Summarize your implementation, including key challenges you encountered. Remember to update the `report` section of the `package.json` file with the total number of hours it took you to complete each task of M5 (`hours`) and the lines of code per task.
+
+My implementation of map reduce consists of filling out the functions provided in the mr.js file and also implementing mem.append both local and distributed versions. One of the challeneges I faced was trying to debug my implementation using utils.log because I could not console.log outputs to see what was being produced. I also did not relize that the test assumes that when you input a null key that it would return all the keys. I had to change my implementation of distributed mem.get in order to match this expectation. This assignment took me around 15 hours. It also took around 200 lies of code. 
+
+
+## Correctness & Performance Characterization
+
+> Describe how you characterized the correctness and performance of your implementation
+
+
+*Correctness*: I wrote different scenarios to test.
+
+
+*Performance*: I wrote a script which generates its own data and computes the min, max, mean to benchmark the time it takes for map reduce to execute. The mean time is around 121.3 ms.
+
+
+## Key Feature
+
+> Which extra features did you implement and how?
+
+N/A

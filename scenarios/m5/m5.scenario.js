@@ -94,9 +94,18 @@ test('(10 pts) (scenario) all.mr:dlib', (done) => {
 */
 
   const mapper = (key, value) => {
+    const words = value.split(/(\s+)/).filter((e) => e !== ' ');
+    const out = [];
+    words.forEach(word => {
+        out.push({[word]: 1})
+    });
+    return out;
   };
 
   const reducer = (key, values) => {
+    const out = {}
+    out[key] = values.reduce((sum, current) => sum + current, 0);
+    return out
   };
 
   const dataset = [
@@ -169,11 +178,37 @@ test('(10 pts) (scenario) all.mr:tfidf', (done) => {
 */
 
   const mapper = (key, value) => {
+    const words = value.split(/(\s+)/).filter((e) => e !== ' ');
+    const totalWordsInDoc = words.length;
+    const out = [];
+    words.forEach(word => {
+        out.push({[word]: {
+        doc: key, 
+        count: 1, 
+        docLen: totalWordsInDoc}})
+    });
+    return out;
   };
 
   // Reduce function: calculate TF-IDF for each word
   const reducer = (key, values) => {
     const totalDocs = 3;
+    const docData = {};
+    values.forEach(item => {
+      if (!docData[item.doc]) {
+        docData[item.doc] = { count: 0, docLen: item.docLen };
+      }
+      docData[item.doc].count += item.count;
+    });
+    const docsWithWord = Object.keys(docData).length;
+    const idf = Math.log10(totalDocs / docsWithWord);
+    const tfIdfResults = {};
+    for (const docId in docData) {
+      const tf = docData[docId].count / docData[docId].docLen; 
+      const score = tf * idf;
+      tfIdfResults[docId] = Math.round(score * 100) / 100;
+    }
+    return { [key]: tfIdfResults };
   };
 
   const dataset = [
@@ -235,15 +270,150 @@ test('(10 pts) (scenario) all.mr:tfidf', (done) => {
 */
 
 test('(10 pts) (scenario) all.mr:crawl', (done) => {
-    done(new Error('Implement this test.'));
+  const mapper = (key, value) => {
+      // Simulate finding URLs in text: strings starting with http
+      const links = value.match(/https?:\/\/[^\s,]+/g) || [];
+      return links.map(link => ({ [link]: key }));
+    };
+
+    const reducer = (key, values) => {
+      // Values is an array of source pages that link to this 'key' URL
+      const uniqueSources = [...new Set(values)].sort();
+      return { [key]: uniqueSources };
+    };
+
+    const dataset = [
+      {'page1': 'Check out http://google.com and http://github.com'},
+      {'page2': 'I like http://google.com but also http://wikipedia.org'},
+      {'page3': 'Reference: http://github.com'},
+    ];
+
+    const expected = [
+      { 'http://google.com': ['page1', 'page2'] },
+      { 'http://github.com': ['page1', 'page3'] },
+      { 'http://wikipedia.org': ['page2'] },
+    ];
+
+    const doMapReduce = () => {
+      distribution.crawl.store.get(null, (e, v) => {
+        distribution.crawl.mr.exec({keys: v, map: mapper, reduce: reducer}, (e, v) => {
+          try {
+            expect(v).toEqual(expect.arrayContaining(expected));
+            done();
+          } catch (err) { done(err); }
+        });
+      });
+    };
+
+    let cntr = 0;
+    dataset.forEach((o) => {
+      const key = Object.keys(o)[0];
+      distribution.crawl.store.put(o[key], key, (e, v) => {
+        if (++cntr === dataset.length) doMapReduce();
+      });
+    });
 });
 
 test('(10 pts) (scenario) all.mr:urlxtr', (done) => {
-    done(new Error('Implement the map and reduce functions'));
+  const mapper = (key, value) => {
+      try {
+        const hostname = new URL(value).hostname;
+        return { [hostname]: 1 };
+      } catch (e) {
+        return {}; // Handle malformed URLs
+      }
+    };
+
+    const reducer = (key, values) => {
+      return { [key]: values.reduce((a, b) => a + b, 0) };
+    };
+
+    const dataset = [
+      {'u1': 'https://google.com/search?q=node'},
+      {'u2': 'https://google.com/images'},
+      {'u3': 'https://github.com/distribution'},
+      {'u4': 'https://wikipedia.org/wiki/MapReduce'},
+    ];
+
+    const expected = [
+      { 'google.com': 2 },
+      { 'github.com': 1 },
+      { 'wikipedia.org': 1 },
+    ];
+
+    const doMapReduce = () => {
+      distribution.urlxtr.store.get(null, (e, v) => {
+        distribution.urlxtr.mr.exec({keys: v, map: mapper, reduce: reducer}, (e, v) => {
+          try {
+            expect(v).toEqual(expect.arrayContaining(expected));
+            done();
+          } catch (err) { done(err); }
+        });
+      });
+    };
+
+    let cntr = 0;
+    dataset.forEach((o) => {
+      const key = Object.keys(o)[0];
+      distribution.urlxtr.store.put(o[key], key, (e, v) => {
+        if (++cntr === dataset.length) doMapReduce();
+      });
+    });
 });
 
 test('(10 pts) (scenario) all.mr:strmatch', (done) => {
-    done(new Error('Implement the map and reduce functions'));
+  const mapper = (key, value) => {
+    const pattern = 'the';
+    const regex = new RegExp(pattern, 'gi');
+    const matches = value.match(regex) || [];
+    return matches.map((_, i) => ({ [pattern]: { doc: key, count: 1 } }));
+  };
+
+  // Reduce: aggregate total match count per document
+  const reducer = (key, values) => {
+    const docCounts = {};
+    values.forEach(({ doc, count }) => {
+      docCounts[doc] = (docCounts[doc] || 0) + count;
+    });
+    return { [key]: docCounts };
+  };
+
+const dataset = [
+  { 'strmatch-d1': 'the cat sat on the mat' },
+  { 'strmatch-d2': 'the dog ran past the fence and the gate' },
+  { 'strmatch-d3': 'a bird flew over a tree' },
+];
+
+const expected = [
+  { 'the': { 'strmatch-d1': 2, 'strmatch-d2': 3 } },
+];
+
+  const doMapReduce = () => {
+    distribution.strmatch.store.get(null, (e, v) => {
+      try {
+        expect(v.length).toEqual(dataset.length);
+      } catch (e) {
+        done(e);
+      }
+
+      distribution.strmatch.mr.exec({ keys: v, map: mapper, reduce: reducer }, (e, v) => {
+        try {
+          expect(v).toEqual(expect.arrayContaining(expected));
+          done();
+        } catch (e) {
+          done(e);
+        }
+      });
+    });
+  };
+
+  let cntr = 0;
+  dataset.forEach((o) => {
+    const key = Object.keys(o)[0];
+    distribution.strmatch.store.put(o[key], key, (e, v) => {
+      if (++cntr === dataset.length) doMapReduce();
+    });
+  });
 });
 
 test('(10 pts) (scenario) all.mr:ridx', (done) => {
@@ -314,7 +484,22 @@ beforeAll((done) => {
               const tfidfConfig = {gid: 'tfidf'};
               distribution.local.groups.put(tfidfConfig, tfidfGroup, (e, v) => {
                 distribution.tfidf.groups.put(tfidfConfig, tfidfGroup, (e, v) => {
-                  done();
+                  const crawlConfig = {gid: 'crawl'};
+                  distribution.local.groups.put(crawlConfig, crawlGroup, (e, v) => {
+                    distribution.crawl.groups.put(crawlConfig, crawlGroup, (e, v) => {
+                      const urlxtrConfig = {gid: 'urlxtr'};
+                      distribution.local.groups.put(urlxtrConfig, urlxtrGroup, (e, v) => {
+                        distribution.urlxtr.groups.put(urlxtrConfig, urlxtrGroup, (e, v) => {
+                          const strmatchConfig = {gid: 'strmatch'};
+                          distribution.local.groups.put(strmatchConfig, strmatchGroup, (e, v) => {
+                            distribution.strmatch.groups.put(strmatchConfig, strmatchGroup, (e, v) => {
+                              done();
+                            });
+                          });
+                        });
+                      });
+                    });
+                  });
                 });
               });
             });

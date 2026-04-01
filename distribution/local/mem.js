@@ -55,7 +55,29 @@ function put(state, configuration, callback) {
  * @param {Callback} callback
  */
 function append(state, configuration, callback) {
-  return callback(new Error('mem.append not implemented')); // You'll need to implement this method for the distributed processing milestone.
+  // You'll need to implement this method for the distributed processing milestone.
+  let key = '';
+  let gid = 'local';
+  let innerKey;
+
+  if (configuration !== null && typeof configuration === 'object') {
+    gid = configuration.gid === null ? 'local' : configuration.gid;
+    innerKey = configuration.key;
+  } else {
+    innerKey = configuration;
+  }
+  
+  key = gid + "::" + innerKey;
+  if (!(key in localmap)) {
+    localmap[key] = [];
+  }
+  if (!Array.isArray(localmap[key])) {
+    localmap[key] = [localmap[key]];
+  }
+
+  localmap[key].push(state);
+
+  return callback(null, localmap[key]);
 };
 
 /**
@@ -68,6 +90,14 @@ function get(configuration, callback) {
   let second;
   let err;
   let res;
+  if (configuration !== null && typeof configuration === 'object' && configuration.key === null) {
+    const gid = configuration.gid === null ? 'local' : configuration.gid;
+    const prefix = gid + '::';
+    const matchingKeys = Object.keys(localmap)
+      .filter(k => k.startsWith(prefix))
+      .map(k => k.slice(prefix.length));
+    return callback(null, matchingKeys);
+  }
   if (configuration !== null && typeof configuration === 'object') {
     first = configuration.gid === null ? 'local' : configuration.gid;
     second = configuration.key;

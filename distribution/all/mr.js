@@ -5,8 +5,6 @@
  * @typedef {import("../util/id.js").NID} NID
  */
 
-const id = require('../util/id.js');
-
 /**
  * Map functions used for mapreduce
  * @callback Mapper
@@ -40,6 +38,8 @@ const id = require('../util/id.js');
   installed on the remote nodes and not necessarily exposed to the user.
 */
 
+const id = require('../util/id.js');
+
 /**
  * @param {Config} config
  * @returns {Mr}
@@ -49,14 +49,18 @@ function mr(config) {
     gid: config.gid || 'all',
   };
 
-  /**
-   * @param {MRConfig} configuration
-   * @param {Callback} callback
-   * @returns {void}
-   */
   function exec(configuration, callback) {
+    const distribution = globalThis.distribution;
+    const allRoutes = distribution[context.gid].routes;
+    const allComm = distribution[context.gid].comm;
+    const groups = distribution.local.groups;
+
     const mrID = id.getID(`${configuration}${Date.now()}`);
-    const serviceName = `mr-${mrID}`
+    const mrGid = `mr-${mrID}`;
+    const coordinator = distribution.node.config;
+
+    const hasErrors = (errors) => errors && Object.keys(errors).length > 0;
+
     /*
       MapReduce steps:
       1) Setup: register a service `mr-<id>` on all nodes in the group. The service implements the map, shuffle, and reduce methods.
@@ -67,68 +71,207 @@ function mr(config) {
 
       Note: Comments inside the stencil describe a possible implementation---you should feel free to make low- and mid-level adjustments as needed.
     */
-    const mrService = {
+    groups.get(context.gid, (groupErr, group) => {
+      if (groupErr) {
+        return callback(groupErr);
+      }
+      const expected = Object.keys(group).length;
+      if (expected === 0) {
+        return callback(new Error('group is empty'));
+      }
+
+      const mrService = {
       mapper: configuration.map,
       reducer: configuration.reduce,
+      gid: context.gid,
+      keys: configuration.keys || [],
+      coordinator,
+      route: mrGid,
+      mrID,
+      group,
+      notifications: {},
+      shuffled: {},
+      reduced: [],
+      start: function(
+          /** @type {{coordinator: any, route: string}} */ payload,
+          /** @type {Callback} */ callback,
+      ) {
+        const distribution = globalThis.distribution;
+        const sid = distribution.util.id.getSID(distribution.node.config);
+        const remote = {
+          node: payload.coordinator,
+          service: payload.route,
+          method: 'notify',
+          gid: 'local',
+        };
+
+        return distribution.local.comm.send(['setup', sid, true], remote, (e, v) => {
+          if (e) {
+            return callback(e);
+          }
+          return callback(null, v);
+        });
+      },
+      notify: function(
+          /** @type {string} */ phase,
+          /** @type {string} */ sid,
+          /** @type {any} */ value,
+          /** @type {Callback} */ callback,
+      ) {
+        if (!this.notifications[phase]) {
+          this.notifications[phase] = {};
+        }
+        this.notifications[phase][sid] = value;
+        return callback(null);
+      },
       map: function(
-          /** @type {string[]} */ keys,
-          /** @type {string} */ gid,
+          /** @type {string} */ mrGid,
           /** @type {string} */ mrID,
           /** @type {Callback} */ callback,
       ) {
-        // Map should read the node's local keys under the mrGid gid and write to store under gid `${mrID}_map`.
-        // Expected output: array of objects with a single key per object.
-        if (!keys || keys.length === 0) {
-          globalThis.distribution.local.store.put([], mrID + '_map', function(err, v) {
-            return callback(null, []);
-          });
-          return;
-        }
-        const mappedResults = [];
-        let completedCount = 0;
-        const self = this;
+        const distribution = globalThis.distribution;
+        const localStore = distribution.local.store;
+        const localComm = distribution.local.comm;
+        const sid = distribution.util.id.getSID(distribution.node.config);
+        const gid = this.gid;
+        const keys = this.keys;
+        const mapped = [];
 
-        keys.forEach((key) => {
-          globalThis.distribution[gid].store.get(key, (e, v) => {
-            completedCount++;
-            const result = self.mapper(key, v);
-            if (Array.isArray(result)) {
-              mappedResults.push(...result);
-            } else {
-              mappedResults.push(result);
-            }
-            if (completedCount === keys.length) {
-              globalThis.distribution.local.store.put(mappedResults, mrID + '_map', (putErr) => {
-                callback(putErr, mappedResults);
+        const notifyRemote = {
+          node: this.coordinator,
+          service: this.route,
+          method: 'notify',
+          gid: 'local',
+        };
+
+        let idx = 0;
+        const readNext = () => {
+          if (idx >= keys.length) {
+            const mapKey = sid;
+            const mapGid = `${this.mrID}_map`;
+            return localStore.put(mapped, {key: mapKey, gid: mapGid}, (e1) => {
+              if (e1) {
+                return callback(e1);
+              }
+
+              return localComm.send(['map', sid, true], notifyRemote, (e2) => {
+                if (e2) {
+                  return callback(e2);
+                }
+                return callback(null, mapped);
+              });
+            });
+          }
+          const key = keys[idx];
+          idx++;
+          return localStore.get({key, gid}, (e, value) => {
+            if (!e) {
+              let map = this.mapper(key, value);
+              if (map === null) {
+                map = [];
+              }
+
+              map.forEach((entry) => {
+                  mapped.push(entry);
               });
             }
+            return readNext();
           });
-        }); 
+        };
+
+        return readNext();
+      },
+      directToNode: function(
+          /** @type {string} */ key,
+          /** @type {any} */ value,
+          /** @type {Callback} */ callback,
+      ) {
+        if (!this.shuffled[key]) {
+          this.shuffled[key] = [];
+        }
+        this.shuffled[key].push(value);
+        return callback(null, true);
       },
       shuffle: function(
           /** @type {string} */ gid,
           /** @type {string} */ mrID,
           /** @type {Callback} */ callback,
       ) {
-        // Fetch the mapped values from the local store
-        // Shuffle groups values by key (via store.append).
-        // 1. Retrieve the results from the Map phase
-        globalThis.distribution.local.store.get(mrID + '_map', (e, mappedData) => {
-          if (e) return callback(e, {})
-          if (!mappedData || mappedData.length === 0) {
-            return callback(null, []);
+        const distribution = globalThis.distribution;
+        const localStore = distribution.local.store;
+        const localComm = distribution.local.comm;
+        const util = distribution.util;
+        const sid = util.id.getSID(distribution.node.config);
+        const mapKey = sid;
+        const mapGid = `${this.mrID}_map`;
+        const group = this.group;
+        const groupSids = Object.keys(group);
+
+        this.shuffled = {};
+
+        const notifyRemote = {
+          node: this.coordinator,
+          service: this.route,
+          method: 'notify',
+          gid: 'local',
+        };
+
+        if (groupSids.length === 0) {
+          return callback(new Error('group is empty'));
+        }
+
+        return localStore.get({key: mapKey, gid: mapGid}, (e, v) => {
+          if (e) {
+            return callback(e);
           }
-          let appendCount = 0;
-          mappedData.forEach((item) => {
-            const [key] = Object.keys(item);
-            const value = item[key];
-            distribution[gid].mem.append(value, { key: key, gid: gid }, (appErr) => {
-              appendCount++;
-              if (appendCount === mappedData.length) {
-                callback(null, mappedData);
+
+            const nids = groupSids.map((groupSid) => util.id.getNID(group[groupSid]));
+            const sids = Object.fromEntries(
+              groupSids.map((groupSid) => [util.id.getNID(group[groupSid]), groupSid]),
+            );
+          const toMove = [];
+
+          (v).forEach((entry) => {
+            Object.keys(entry).forEach((k) => {
+              const kid = util.id.getID(k);
+              const targetNid = util.id.naiveHash(kid, nids);
+              const targetSid = sids[targetNid];
+              if (!targetSid) {
+                return;
               }
+              toMove.push({node: group[targetSid], key: k, value: entry[k]});
             });
           });
+
+          let idx = 0;
+          const sendNext = () => {
+            if (idx >= toMove.length) {
+              return localComm.send(['shuffle', sid], notifyRemote, (e) => {
+                if (e) {
+                  return callback(e);
+                }
+                return callback(null, toMove.length);
+              });
+            }
+
+            const move = toMove[idx];
+            idx++;
+
+            const directToNodeRemote = {
+              node: move.node,
+              service: this.route,
+              method: 'directToNode',
+              gid: 'local',
+            };
+            return localComm.send([move.key, move.value], directToNodeRemote, (e) => {
+              if (e) {
+                return callback(e);
+              }
+              return sendNext();
+            });
+          };
+
+          return sendNext();
         });
       },
       reduce: function(
@@ -136,77 +279,120 @@ function mr(config) {
           /** @type {string} */ mrID,
           /** @type {Callback} */ callback,
       ) {
-          const self = this;
-          // Get keys that landed on THIS node under this gid
-          distribution.local.mem.get({ key: null, gid: gid }, (e, keys) => {
-            if (e || !keys || keys.length === 0) {
-              return callback(null, null);
+        const distribution = globalThis.distribution;
+        const localComm = distribution.local.comm;
+        const sid = distribution.util.id.getSID(distribution.node.config);
+
+        const notifyRemote = {
+          node: this.coordinator,
+          service: this.route,
+          method: 'notify',
+          gid: 'local',
+        };
+
+        this.reduced = [];
+        Object.keys(this.shuffled).forEach((key) => {
+          const out = this.reducer(key, this.shuffled[key]);
+          this.reduced.push(out);
+        });
+
+        return localComm.send(['reduce', sid], notifyRemote, (e) => {
+          if (e) {
+            return callback(e);
+          }
+          return callback(null, this.reduced);
+        });
+
+      },
+    };
+
+      const cleanup = (e, v) => {
+        return allRoutes.rem(mrGid, (e1) => {
+          if (hasErrors(e1)) {
+            return callback(e1);
+          }
+          const localRoutes = distribution.local.routes;
+          return localRoutes.rem(mrGid, (e2) => {
+            if (hasErrors(e2)) {
+              return callback(e2);
             }
-            let finalResults = [];
-            let processedKeys = 0;
-            keys.forEach((key) => {
-              distribution.local.mem.get({ key: key, gid: gid }, (getErr, values) => {
-                const reducedValue = self.reducer(key, values);
-                if (Array.isArray(reducedValue)) {
-                  finalResults.push(...reducedValue);
-                } else {
-                  finalResults.push(reducedValue);
-                }
-                processedKeys++;
-                if (processedKeys === keys.length) {
-                  callback(null, finalResults);
-                }
+            return callback(e, v);
+          });
+        });
+      };
+
+      const waitForPhase = (stage, cb) => {
+        const checkCompletion = () => {
+          const received = Object.keys(mrService.notifications[stage]).length;
+          if (received >= expected) {
+            return cb();
+          }
+          setTimeout(checkCompletion, 0);
+        };
+        checkCompletion();
+      };
+
+      return allRoutes.put(mrService, mrGid, (e, v) => {
+        if (hasErrors(e)) {
+          return callback(e, v);
+        }
+
+        const localRoutes = distribution.local.routes;
+        return localRoutes.put(mrService, mrGid, (e) => {
+          if (hasErrors(e)) {
+            return cleanup(e);
+          }
+
+        const target = {service: mrGid, method: 'start', gid: 'local'};
+        const message = [{coordinator, route: mrGid}];
+
+        return allComm.send(message, target, (e, v) => {
+          if (hasErrors(e)) {
+            return cleanup(e, v);
+          }
+
+          return waitForPhase('setup', () => {
+            const mapTarget = {service: mrGid, method: 'map', gid: 'local'};
+            return allComm.send([mrGid, mrID], mapTarget, (e, v) => {
+              if (hasErrors(e)) {
+                return cleanup(e, v);
+              }
+
+              return waitForPhase('map', () => {
+                const shuffleTarget = {service: mrGid, method: 'shuffle', gid: 'local'};
+                return allComm.send([context.gid, mrID], shuffleTarget, (e, v) => {
+                  if (hasErrors(e)) {
+                    return cleanup(e, v);
+                  }
+
+                  return waitForPhase('shuffle', () => {
+                    const reduceTarget = {service: mrGid, method: 'reduce', gid: 'local'};
+                    return allComm.send([context.gid, mrID], reduceTarget, (e, v) => {
+                      if (hasErrors(e)) {
+                        return cleanup(e, v);
+                      }
+
+                      return waitForPhase('reduce', () => {
+                        const reduced = [];
+                        Object.values(v).forEach((node) => {
+                          node.forEach((entry) => {
+                              reduced.push(entry);
+                          });
+                        });
+
+                        return cleanup(null, reduced);
+                      });
+                    });
+                  });
+                });
               });
             });
           });
-      },
-    };
-    // Register the mr service on all nodes in the group and execute in sequence: map, shuffle, reduce.
-    distribution[context.gid].routes.put(mrService, serviceName, (e, v) => {
-      if (e && Object.keys(e).length > 0) {
-        return callback(e, null)
-      }
-      distribution.local.groups.get(context.gid, (e, nodes) => {
-        if (e) {
-          return callback(e, null)
-        }
-        const nodeIds = Object.keys(nodes)
+        });
+        });
+      });
+    });
 
-        const partitions = {}
-        nodeIds.forEach(nodeID => partitions[nodeID] = [])
-        configuration.keys.forEach(key => {
-          const kid = id.getID(key)
-          const targetNode = id.naiveHash(kid, nodeIds)
-          partitions[targetNode].push(key)
-        })
-        let nodesDone = 0
-        const totalNodes = nodeIds.length
-
-        for (const nodeID of nodeIds) {
-          const args = [partitions[nodeID], context.gid, mrID,];
-          distribution.local.comm.send(args, { node: nodes[nodeID], service: serviceName, method: 'map' }, (mapErr, v) => {
-            nodesDone++
-            if (nodesDone === totalNodes) {
-              distribution[context.gid].comm.send([context.gid, mrID], { service: serviceName, method: 'shuffle' }, (e, v) => {
-                distribution[context.gid].comm.send([context.gid, mrID], { service: serviceName, method: 'reduce' }, (e, v) => {
-                  const finalResults = [];
-                    for (const nodeResult of Object.values(v)) {
-                      if (nodeResult !== null) {
-                        for (const item of nodeResult) {
-                          finalResults.push(item);
-                        }
-                      }
-                    }
-                  globalThis.distribution[context.gid].routes.rem(serviceName, (e, v) => {
-                    callback(null, finalResults);
-                  });
-                })
-              })
-            }
-          })
-        }
-      })
-    })
   }
 
   return {exec};

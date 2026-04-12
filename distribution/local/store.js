@@ -136,8 +136,51 @@ function del(configuration, callback) {
  * @param {SimpleConfig} configuration
  * @param {Callback} callback
  */
+const appendQueues = new Map();
+
 function append(state, configuration, callback) {
-  return callback(new Error('store.append not implemented')); // You'll need to implement this method for the distributed processing milestone.
+  let first;
+  let second;
+  let key;
+
+  if (configuration !== null && typeof configuration === 'object') {
+    first = configuration.gid === null ? null : configuration.gid;
+    second = configuration.key ? configuration.key : id.getID(state);
+    second = second.replace(/[^a-zA-Z0-9]/g, '');
+    key = first + '::' + second;
+  } else {
+    first = null;
+    second = configuration ? configuration : id.getID(state);
+    second = second.replace(/[^a-zA-Z0-9]/g, '');
+    key = first + '::' + second;
+  }
+
+  if (!appendQueues.has(key)) appendQueues.set(key, []);
+  const queue = appendQueues.get(key);
+  queue.push({state, callback});
+  if (queue.length > 1) return;
+
+  const drain = () => {
+    if (!queue.length) { appendQueues.delete(key); return; }
+    const {state: s, callback: cb} = queue[0];
+    const finalPath = path.join(NODE_SPECIFIC_DIR, key);
+    fs.readFile(finalPath, (err, data) => {
+      let list = [];
+      if (!err) {
+        try {
+          const v = distribution.util.deserialize(data.toString());
+          list = Array.isArray(v) ? v : [v];
+        } catch (_) {}
+      }
+      list.push(s);
+      fs.writeFile(finalPath, distribution.util.serialize(list), (e) => {
+        queue.shift();
+        cb(e || null, e ? undefined : list);
+        drain();
+      });
+    });
+  };
+  drain();
 }
 
 module.exports = {put, get, del, append};

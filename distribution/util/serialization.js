@@ -41,10 +41,7 @@ function deserialize(string) {
     "null", "function", "error", "date"
   ];
   const parsed = JSON.parse(string, (key, value) => {
-    if (value && typeof value === 'object' && value.type) {
-      if (!supportedTypes.includes(value.type)) {
-        throw new Error(`Unknown serialized type: ${value.type}`);
-      }
+    if (value && typeof value === 'object' && typeof value.type === 'string' && supportedTypes.includes(value.type)) {
       switch (value.type) {
         case "bigint":
           return BigInt(value.value)

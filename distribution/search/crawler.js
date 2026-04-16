@@ -162,12 +162,15 @@ function crawlStep(nids, group, cb) {
     const text = nlp.extractText(html);
     const links = nlp.extractLinks(html, url);
 
-    globalThis.distribution.search.store.put({url, text}, 'doc_' + kid, () => {
-      let pending = links.length;
-      if (pending === 0) return maybePersist(() => crawlStep(nids, group, cb));
-      links.forEach((l) => {
-        dispatchLink(l, nids, group, () => {
-          if (--pending === 0) maybePersist(() => crawlStep(nids, group, cb));
+    const d = globalThis.distribution;
+    d.search.store.put({url, text}, 'doc_' + kid, () => {
+      d.search.store.append(url, '__all_urls__', () => {
+        let pending = links.length;
+        if (pending === 0) return maybePersist(() => crawlStep(nids, group, cb));
+        links.forEach((l) => {
+          dispatchLink(l, nids, group, () => {
+            if (--pending === 0) maybePersist(() => crawlStep(nids, group, cb));
+          });
         });
       });
     });

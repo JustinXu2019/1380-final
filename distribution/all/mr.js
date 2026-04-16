@@ -158,7 +158,7 @@ function mr(config) {
                 if (e2) {
                   return callback(e2);
                 }
-                return callback(null, mapped);
+                return callback(null, true);
               });
             });
           }

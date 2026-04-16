@@ -180,9 +180,26 @@ function doReset() {
   });
 }
 
+function doQuery() {
+  withCluster((group) => {
+    const query = require('./distribution/search/query.js');
+    query.run(argv.q, argv.topK, (err, results) => {
+      if (err) console.error('[query] error:', err);
+      else {
+        console.log(`[query] "${argv.q}" (${results.length} results)`);
+        results.forEach((r, i) => {
+          console.log(`${(i + 1).toString().padStart(2)}. ${r.score.toFixed(4)}  ${r.url}`);
+        });
+      }
+      shutdown(group);
+    });
+  });
+}
+
 switch (mode) {
   case 'crawl': doCrawl(); break;
   case 'index': doIndex(); break;
+  case 'query': doQuery(); break;
   case 'status': doStatus(); break;
   case 'reset': doReset(); break;
   default:

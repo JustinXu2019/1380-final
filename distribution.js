@@ -43,6 +43,9 @@ function bootstrap(config) {
   // distribution.util.deserialize = distributionLib.util.deserialize;
   // __end_M3_solution__
 
+  distribution.local.nlp = require('./distribution/search/nlp.js');
+  distribution.local.crawler = require('./distribution/search/crawler.js');
+
   for (const [key, service] of Object.entries(distribution.local)) {
     distribution.local.routes.put(service, key, () => {});
   }

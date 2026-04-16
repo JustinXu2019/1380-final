@@ -12,6 +12,7 @@ const argv = yargs
     .option('seeds', {type: 'string', default: 'distribution/search/seeds.txt'})
     .option('max-pages', {type: 'number', default: 50})
     .command('crawl', 'start distributed crawl')
+    .command('index', 'build distributed index')
     .command('status', 'print crawler status on all workers')
     .command('reset', 'wipe crawler state on all workers')
     .demandCommand(1)
@@ -141,6 +142,18 @@ function doCrawl() {
   });
 }
 
+function doIndex() {
+  withCluster((group) => {
+    const indexer = require('./distribution/search/indexer.js');
+    indexer.run('search', (err, stats) => {
+      if (err) console.error('[index] error:', err);
+      else console.log(`[index] terms=${stats.terms} docs=${stats.docs}`);
+      shutdown(group);
+    });
+  });
+}
+
+
 function doStatus() {
   withCluster((group) => {
     distribution.search.comm.send(
@@ -169,6 +182,7 @@ function doReset() {
 
 switch (mode) {
   case 'crawl': doCrawl(); break;
+  case 'index': doIndex(); break;
   case 'status': doStatus(); break;
   case 'reset': doReset(); break;
   default:

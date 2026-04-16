@@ -2,7 +2,13 @@ const https = require('https');
 const http = require('http');
 const {URL} = require('url');
 
-let state = null; // { visited: Set<kid>, queue: string[], queueSet: Set<url> }
+const STATE_KEY = 'crawler-state';
+const STATE_GID = 'crawler';
+
+// state.visited and state.queueSet are Sets at runtime but get serialized
+// as arrays since JSON doesn't handle Sets. queueSet is reconstructed from
+// queue on load so we don't bother persisting it separately.
+let state = null;
 let loopActive = false;
 let opts = {};
 
@@ -49,6 +55,52 @@ function fetchPage(url, cb) {
   req.on('error', (e) => cb(e));
 }
 
+function persist(cb) {
+  if (!state) return cb && cb();
+  const serialized = {
+    visited: [...state.visited],
+    queue: state.queue,
+    crawledCount: state.crawledCount,
+    bytes: state.bytes,
+  };
+  globalThis.distribution.local.store.put(
+      serialized, {key: STATE_KEY, gid: STATE_GID}, () => cb && cb(),
+  );
+}
+
+function load(cb) {
+  globalThis.distribution.local.store.get(
+      {key: STATE_KEY, gid: STATE_GID}, (e, saved) => {
+        if (!e && saved) {
+          state = {
+            visited: new Set(saved.visited),
+            queue: saved.queue,
+            queueSet: new Set(saved.queue),
+            crawledCount: saved.crawledCount || 0,
+            bytes: saved.bytes || 0,
+          };
+        } else {
+          state = {visited: new Set(), queue: [], queueSet: new Set(), crawledCount: 0, bytes: 0};
+        }
+        cb();
+      });
+}
+
+function maybePersist(cb) {
+  if (state.crawledCount % 5 === 0) persist(cb);
+  else cb();
+}
+
+function urlAllowed(url) {
+  if (!opts.allowDomains || opts.allowDomains.length === 0) return true;
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return opts.allowDomains.some((d) => host === d || host.endsWith('.' + d));
+  } catch (_) {
+    return false;
+  }
+}
+
 function ownerNode(url, nids, group) {
   const d = globalThis.distribution;
   const kid = d.util.id.getID(url);
@@ -57,6 +109,7 @@ function ownerNode(url, nids, group) {
 }
 
 function enqueue(url, cb) {
+  if (!state) return load(() => enqueue(url, cb));
   const kid = globalThis.distribution.util.id.getID(url);
   if (state.visited.has(kid)) return cb(null, false);
   if (state.queueSet.has(url)) return cb(null, false);
@@ -66,6 +119,7 @@ function enqueue(url, cb) {
 }
 
 function dispatchLink(url, nids, group, cb) {
+  if (!urlAllowed(url)) return cb();
   const d = globalThis.distribution;
   const me = d.util.id.getNID(d.node.config);
   const target = ownerNode(url, nids, group);
@@ -82,13 +136,16 @@ function dispatchLink(url, nids, group, cb) {
 
 function crawlStep(nids, group, cb) {
   if (!loopActive) return cb();
+  if (state.crawledCount >= opts.maxPages) {
+    loopActive = false;
+    return persist(cb);
+  }
 
   const url = state.queue.shift();
-  state.queueSet.delete(url);
-
   if (!url) {
     return setTimeout(() => crawlStep(nids, group, cb), 500);
   }
+  state.queueSet.delete(url);
 
   const kid = globalThis.distribution.util.id.getID(url);
   if (state.visited.has(kid)) {
@@ -97,18 +154,20 @@ function crawlStep(nids, group, cb) {
 
   fetchPage(url, (err, html) => {
     state.visited.add(kid);
-    if (err || !html) return setImmediate(() => crawlStep(nids, group, cb));
+    if (err || !html) return maybePersist(() => crawlStep(nids, group, cb));
 
+    state.crawledCount += 1;
+    state.bytes += html.length;
     const nlp = globalThis.distribution.local.nlp;
     const text = nlp.extractText(html);
     const links = nlp.extractLinks(html, url);
 
     globalThis.distribution.search.store.put({url, text}, 'doc_' + kid, () => {
       let pending = links.length;
-      if (pending === 0) return setImmediate(() => crawlStep(nids, group, cb));
+      if (pending === 0) return maybePersist(() => crawlStep(nids, group, cb));
       links.forEach((l) => {
         dispatchLink(l, nids, group, () => {
-          if (--pending === 0) setImmediate(() => crawlStep(nids, group, cb));
+          if (--pending === 0) maybePersist(() => crawlStep(nids, group, cb));
         });
       });
     });
@@ -116,40 +175,54 @@ function crawlStep(nids, group, cb) {
 }
 
 function start(o, cb) {
-  opts = Object.assign({seeds: [], groupName: 'search'}, o || {});
-  state = {visited: new Set(), queue: [], queueSet: new Set()};
+  opts = Object.assign({seeds: [], groupName: 'search', maxPages: 100, allowDomains: []}, o || {});
 
-  const d = globalThis.distribution;
-  d.local.groups.get(opts.groupName, (e, group) => {
-    if (e) return cb(e);
+  load(() => {
+    const d = globalThis.distribution;
+    d.local.groups.get(opts.groupName, (e, group) => {
+      if (e) return cb(e);
 
-    const nids = Object.values(group).map((n) => d.util.id.getNID(n));
-    const me = d.util.id.getNID(d.node.config);
+      const nids = Object.values(group).map((n) => d.util.id.getNID(n));
+      const me = d.util.id.getNID(d.node.config);
 
-    opts.seeds.forEach((url) => {
-      const owner = d.util.id.consistentHash(d.util.id.getID(url), nids);
-      if (owner !== me) return;
-      state.queue.push(url);
-      state.queueSet.add(url);
+      opts.seeds.forEach((url) => {
+        const owner = d.util.id.consistentHash(d.util.id.getID(url), nids);
+        if (owner !== me) return;
+        const kid = d.util.id.getID(url);
+        if (!state.visited.has(kid) && !state.queueSet.has(url)) {
+          state.queue.push(url);
+          state.queueSet.add(url);
+        }
+      });
+
+      if (loopActive) return cb(null, {started: false, already: true});
+      loopActive = true;
+      setImmediate(() => crawlStep(nids, group, () => persist(() => {})));
+      cb(null, {started: true});
     });
-
-    loopActive = true;
-    setImmediate(() => crawlStep(nids, group, () => {}));
-    cb(null, {started: true});
   });
 }
 
 function stop(cb) {
   loopActive = false;
-  cb(null, {stopped: true});
+  persist(() => cb(null, {stopped: true}));
 }
 
 function status(cb) {
+  if (!state) return load(() => status(cb));
   cb(null, {
     crawling: loopActive,
-    visited: state ? state.visited.size : 0,
-    queue: state ? state.queue.length : 0,
+    visited: state.visited.size,
+    queue: state.queue.length,
+    crawled: state.crawledCount,
+    bytes: state.bytes,
   });
 }
 
-module.exports = {start, stop, enqueue, status};
+function reset(cb) {
+  state = {visited: new Set(), queue: [], queueSet: new Set(), crawledCount: 0, bytes: 0};
+  loopActive = false;
+  persist(() => cb(null, {reset: true}));
+}
+
+module.exports = {start, stop, enqueue, status, reset};

@@ -129,10 +129,13 @@ function pollUntilDone(group) {
 function doCrawl() {
   withCluster((group) => {
     const seeds = readSeeds();
+    const allowDomains = [...new Set(seeds.map((u) => {
+      try { return new URL(u).hostname.toLowerCase(); } catch (_) { return null; }
+    }).filter(Boolean))];
     const startOpts = {
       seeds,
       maxPages: argv.maxPages,
-      allowDomains: ['food.com', 'www.food.com'],
+      allowDomains,
       groupName: 'search',
     };
     process.on('SIGINT', () => gracefulShutdown(group));

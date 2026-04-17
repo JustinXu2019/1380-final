@@ -200,8 +200,11 @@ function start(o, cb) {
 
       if (loopActive) return cb(null, {started: false, already: true});
       loopActive = true;
-      setImmediate(() => crawlStep(nids, group, () => persist(() => {})));
-      cb(null, {started: true});
+      const workers = opts.workers || 8;
+      for (let i = 0; i < workers; i++) {
+        setImmediate(() => crawlStep(nids, group, () => {}));
+      }
+      cb(null, {started: true, workers});
     });
   });
 }

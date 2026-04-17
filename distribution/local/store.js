@@ -17,7 +17,7 @@
 
 const path = require('node:path');
 const fs = require('fs');
-const id = distribution.util.id;
+const id = globalThis.distribution.util.id;
 const ROOT_STORE_DIR = path.resolve(process.cwd(), 'store');
 const nid = id.getNID(globalThis.distribution.node.config);
 const NODE_SPECIFIC_DIR = path.join(ROOT_STORE_DIR, `node_${nid}`);

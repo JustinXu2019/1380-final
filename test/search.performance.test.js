@@ -1,92 +1,10 @@
 require('../distribution.js')();
 const distribution = globalThis.distribution;
 const id = distribution.util.id;
-const http = require('node:http');
 
-const awsNodes = [
-  {ip: '3.133.106.38', port: 7110}
+const nodes = [
+  {ip: '3.133.106.38', port: 8080}
 ];
-
-function parseAwsNodesFromEnv() {
-  const raw = process.env.SEARCH_TEST_NODES;
-  if (!raw) {
-    return [];
-  }
-
-  return raw
-      .split(',')
-      .map((entry) => entry.trim())
-      .filter(Boolean)
-      .map((entry) => {
-        const [ip, portRaw] = entry.split(':');
-        return {ip, port: Number(portRaw)};
-      });
-}
-
-const nodes = parseAwsNodesFromEnv().length > 0 ? parseAwsNodesFromEnv() : awsNodes;
-
-function normalizeNodes(rawNodes) {
-  const seen = new Set();
-  return (rawNodes || [])
-      .filter((node) => node && typeof node.ip === 'string' && Number.isInteger(node.port))
-      .map((node) => ({ip: node.ip.trim(), port: Number(node.port)}))
-      .filter((node) => node.ip.length > 0 && node.port > 0)
-      .filter((node) => {
-        const key = `${node.ip}:${node.port}`;
-        if (seen.has(key)) {
-          return false;
-        }
-        seen.add(key);
-        return true;
-      });
-}
-
-function probeNode(node, timeoutMs, cb) {
-  const payload = distribution.util.serialize({args: []});
-  const req = http.request({
-    hostname: node.ip,
-    port: node.port,
-    path: '/local/status/get',
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      'Content-Length': Buffer.byteLength(payload),
-    },
-  }, (res) => {
-    res.resume();
-    cb(true);
-  });
-
-  req.setTimeout(timeoutMs, () => {
-    req.destroy(new Error('timeout'));
-  });
-
-  req.on('error', () => cb(false));
-  req.write(payload);
-  req.end();
-}
-
-function resolveReachableNodes(candidateNodes, timeoutMs, cb) {
-  if (!candidateNodes.length) {
-    cb([]);
-    return;
-  }
-
-  let pending = candidateNodes.length;
-  const reachable = [];
-
-  candidateNodes.forEach((node) => {
-    probeNode(node, timeoutMs, (ok) => {
-      if (ok) {
-        reachable.push(node);
-      }
-      pending -= 1;
-      if (pending === 0) {
-        cb(reachable);
-      }
-    });
-  });
-}
 
 function buildGroupFromNodes(nodes) {
   const group = {};
@@ -104,15 +22,7 @@ function setupGroup(group, cb) {
 }
 
 function shutdown(group, cb) {
-  if (!group) {
-    if (distribution.node.server) {
-      distribution.node.server.close();
-    }
-    return cb && cb();
-  }
-
-  const localSid = id.getSID(distribution.node.config);
-  const nodesList = Object.values(group).filter((node) => id.getSID(node) !== localSid);
+  const nodesList = Object.values(group);
   let i = 0;
 
   const stopNext = () => {
@@ -137,53 +47,14 @@ describe('performance', () => {
   let group;
 
   beforeAll((done) => {
-    let finished = false;
-    const setupTimeout = setTimeout(() => {
-      finish(new Error('Setup timed out while validating external nodes. Check IPs/ports in test/search.performance.test.js.'));
-    }, 12000);
-
-    const finish = (err) => {
-      if (finished) {
-        return;
-      }
-      finished = true;
-      clearTimeout(setupTimeout);
-      done(err);
-    };
-
     distribution.node.start((err) => {
       if (err) {
-        finish(err);
+        done(err);
         return;
       }
 
-      const configuredNodes = normalizeNodes(nodes);
-      if (configuredNodes.length === 0) {
-        if (distribution.node.server) {
-          distribution.node.server.close();
-        }
-        finish(new Error('No external nodes configured. Add nodes to awsNodes or set SEARCH_TEST_NODES=ip:port[,ip:port].'));
-        return;
-      }
-
-      resolveReachableNodes(configuredNodes, 2000, (reachableNodes) => {
-        if (reachableNodes.length === 0) {
-          if (distribution.node.server) {
-            distribution.node.server.close();
-          }
-          const targets = configuredNodes.map((n) => `${n.ip}:${n.port}`).join(', ');
-          finish(new Error(`None of the configured external nodes are reachable: ${targets}`));
-          return;
-        }
-
-        if (reachableNodes.length !== configuredNodes.length) {
-          const skipped = configuredNodes.length - reachableNodes.length;
-          console.warn(`[perf] skipping ${skipped} unreachable external node(s)`);
-        }
-
-        group = buildGroupFromNodes(reachableNodes);
-        setupGroup(group, () => finish());
-      });
+      group = buildGroupFromNodes(nodes);
+      setupGroup(group, done);
     });
   });
 

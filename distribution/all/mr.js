@@ -291,16 +291,26 @@ function mr(config) {
         };
 
         this.reduced = [];
-        Object.keys(this.shuffled).forEach((key) => {
-          const out = this.reducer(key, this.shuffled[key]);
-          this.reduced.push(out);
-        });
-
-        return localComm.send(['reduce', sid], notifyRemote, (e) => {
-          if (e) {
-            return callback(e);
+        const keys = Object.keys(this.shuffled);
+        const self = this;
+        const finish = () => {
+          return localComm.send(['reduce', sid], notifyRemote, (e) => {
+            if (e) return callback(e);
+            return callback(null, self.reduced);
+          });
+        };
+        if (keys.length === 0) return finish();
+        let pending = keys.length;
+        const step = (out) => {
+          self.reduced.push(out);
+          if (--pending === 0) finish();
+        };
+        keys.forEach((key) => {
+          if (self.reducer.length >= 3) {
+            self.reducer(key, self.shuffled[key], step);
+          } else {
+            step(self.reducer(key, self.shuffled[key]));
           }
-          return callback(null, this.reduced);
         });
 
       },

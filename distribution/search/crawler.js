@@ -62,6 +62,7 @@ function persist(cb) {
     queue: state.queue,
     crawledCount: state.crawledCount,
     bytes: state.bytes,
+    crawledUrls: state.crawledUrls,
   };
   globalThis.distribution.local.store.put(
       serialized, {key: STATE_KEY, gid: STATE_GID}, () => cb && cb(),
@@ -78,9 +79,10 @@ function load(cb) {
             queueSet: new Set(saved.queue),
             crawledCount: saved.crawledCount || 0,
             bytes: saved.bytes || 0,
+            crawledUrls: saved.crawledUrls || [],
           };
         } else {
-          state = {visited: new Set(), queue: [], queueSet: new Set(), crawledCount: 0, bytes: 0};
+          state = {visited: new Set(), queue: [], queueSet: new Set(), crawledCount: 0, bytes: 0, crawledUrls: []};
         }
         cb();
       });
@@ -158,13 +160,14 @@ function crawlStep(nids, group, cb) {
 
     state.crawledCount += 1;
     state.bytes += html.length;
+    state.crawledUrls.push(url);
     const nlp = globalThis.distribution.local.nlp;
     const text = nlp.extractText(html);
     const links = nlp.extractLinks(html, url);
 
     const d = globalThis.distribution;
     d.search.store.put({url, text}, 'doc_' + kid, () => {
-      d.search.store.append(url, '__all_urls__', () => {
+      d.search.store.put(url, 'url_' + kid, () => {
         let pending = links.length;
         if (pending === 0) return maybePersist(() => crawlStep(nids, group, cb));
         links.forEach((l) => {
@@ -226,9 +229,14 @@ function status(cb) {
 }
 
 function reset(cb) {
-  state = {visited: new Set(), queue: [], queueSet: new Set(), crawledCount: 0, bytes: 0};
+  state = {visited: new Set(), queue: [], queueSet: new Set(), crawledCount: 0, bytes: 0, crawledUrls: []};
   loopActive = false;
   persist(() => cb(null, {reset: true}));
 }
 
-module.exports = {start, stop, enqueue, status, reset};
+function getLocalUrls(cb) {
+  if (!state) return load(() => getLocalUrls(cb));
+  cb(null, state.crawledUrls);
+}
+
+module.exports = {start, stop, enqueue, status, reset, getLocalUrls};

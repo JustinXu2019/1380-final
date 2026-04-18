@@ -7,6 +7,8 @@
 const http = require('node:http');
 const util = require('../util/serialization.js');
 
+const agent = new http.Agent({keepAlive: true, maxSockets: 64});
+
 /**
  * @typedef {Object} Target
  * @property {string} service
@@ -49,6 +51,7 @@ function send(message, remote, callback) {
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(postData),
       },
+    agent,
   };
 
   res = http.request(options, (response) => {

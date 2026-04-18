@@ -1,10 +1,22 @@
-require('../distribution.js')();
+/*
+  Edit WORKER_NODES below — every { ip, port } is a member of the search group.
+
+  This Jest process is still the MapReduce coordinator: workers HTTP-notify
+  distribution.node.config (distribution/all/mr.js). Bind to an address every
+  worker can reach (LOCAL_NODE_IP / LOCAL_NODE_PORT).
+*/
+const localIp = process.env.LOCAL_NODE_IP || '127.0.0.1';
+const localPort = Number(process.env.LOCAL_NODE_PORT || 9040);
+require('../distribution.js')({ip: localIp, port: localPort});
 const distribution = globalThis.distribution;
 const id = distribution.util.id;
 
-const nodes = [
-  {ip: '3.133.106.38', port: 8080}
+/** Search-group workers only — add every AWS node you run distribution on. */
+const WORKER_NODES = [
+  {ip: '3.133.106.38', port: 8080},
 ];
+
+const nodes = WORKER_NODES;
 
 function buildGroupFromNodes(nodes) {
   const group = {};
@@ -22,7 +34,8 @@ function setupGroup(group, cb) {
 }
 
 function shutdown(group, cb) {
-  const nodesList = Object.values(group);
+  const localSid = id.getSID(distribution.node.config);
+  const nodesList = Object.values(group).filter((node) => id.getSID(node) !== localSid);
   let i = 0;
 
   const stopNext = () => {
@@ -47,13 +60,12 @@ describe('performance', () => {
   let group;
 
   beforeAll((done) => {
+    group = buildGroupFromNodes(nodes);
     distribution.node.start((err) => {
       if (err) {
         done(err);
         return;
       }
-
-      group = buildGroupFromNodes(nodes);
       setupGroup(group, done);
     });
   });
@@ -71,13 +83,13 @@ describe('performance', () => {
       const opts = {
         seeds: [seedUrl],
         maxPages,
+        allowDomains: ['food.com', 'www.food.com'],
         groupName: 'search',
       };
 
       distribution.search.comm.send([opts], {service: 'crawler', method: 'start'}, () => {
         const startPoll = Date.now();
         const maxWaitMs = 3600000;
-        let idlePolls = 0;
 
         const poll = () => {
           distribution.search.comm.send([], {service: 'crawler', method: 'status'}, (errs, statuses) => {
@@ -94,18 +106,7 @@ describe('performance', () => {
               }
             });
 
-            if (total === 0 && activeCount === 0) {
-              idlePolls++;
-            } else {
-              idlePolls = 0;
-            }
-
             if (total >= maxPages || activeCount === 0) {
-              if (total === 0 && activeCount === 0 && idlePolls < 5) {
-                setTimeout(poll, 2000);
-                return;
-              }
-
               const elapsedMs = Date.now() - t0;
               const elapsedSec = (elapsedMs / 1000).toFixed(2);
               console.log(`[perf] crawler 100 links: ${elapsedSec}s (${total} pages)`);

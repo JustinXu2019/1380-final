@@ -132,10 +132,11 @@ function mr(config) {
         const distribution = globalThis.distribution;
         const localStore = distribution.local.store;
         const localComm = distribution.local.comm;
-        const sid = distribution.util.id.getSID(distribution.node.config);
+        const util = distribution.util;
+        const sid = util.id.getSID(distribution.node.config);
         const gid = this.gid;
-        const keys = this.keys;
-        const mapped = [];
+        const self = this;
+        const mapped = new Map();
 
         const notifyRemote = {
           node: this.coordinator,
@@ -144,52 +145,70 @@ function mr(config) {
           gid: 'local',
         };
 
-        let idx = 0;
-        const readNext = () => {
-          if (idx >= keys.length) {
-            const mapKey = sid;
-            const mapGid = `${this.mrID}_map`;
-            return localStore.put(mapped, {key: mapKey, gid: mapGid}, (e1) => {
-              if (e1) {
-                return callback(e1);
-              }
+        const myNid = util.id.getNID(distribution.node.config);
+        const groupSids = Object.keys(this.group);
+        const nids = groupSids.map((s) => util.id.getNID(this.group[s]));
+        const myKeys = this.keys.filter(
+            (k) => util.id.naiveHash(util.id.getID(k), nids) === myNid,
+        );
 
-              return localComm.send(['map', sid, true], notifyRemote, (e2) => {
-                if (e2) {
-                  return callback(e2);
-                }
-                return callback(null, true);
-              });
+        const finish = () => {
+          const mapKey = sid;
+          const mapGid = `${self.mrID}_map`;
+          const serialized = Object.fromEntries(mapped);
+          return localStore.put(serialized, {key: mapKey, gid: mapGid}, (e1) => {
+            if (e1) return callback(e1);
+            return localComm.send(['map', sid, true], notifyRemote, (e2) => {
+              if (e2) return callback(e2);
+              return callback(null, true);
             });
-          }
-          const key = keys[idx];
-          idx++;
-          return localStore.get({key, gid}, (e, value) => {
-            if (!e) {
-              let map = this.mapper(key, value);
-              if (map === null) {
-                map = [];
-              }
-
-              map.forEach((entry) => {
-                  mapped.push(entry);
-              });
-            }
-            return readNext();
           });
         };
 
-        return readNext();
+        if (myKeys.length === 0) return finish();
+
+        const CONCURRENCY = 32;
+        let idx = 0;
+        let inflight = 0;
+        let doneCount = 0;
+        const pump = () => {
+          while (inflight < CONCURRENCY && idx < myKeys.length) {
+            const key = myKeys[idx++];
+            inflight++;
+            localStore.get({key, gid}, (e, value) => {
+              if (!e) {
+                let entries = self.mapper(key, value);
+                if (entries == null) entries = [];
+                for (let i = 0; i < entries.length; i++) {
+                  const entry = entries[i];
+                  const ks = Object.keys(entry);
+                  for (let j = 0; j < ks.length; j++) {
+                    const term = ks[j];
+                    if (!mapped.has(term)) mapped.set(term, []);
+                    mapped.get(term).push(entry[term]);
+                  }
+                }
+              }
+              inflight--;
+              doneCount++;
+              if (doneCount === myKeys.length) finish();
+              else pump();
+            });
+          }
+        };
+        pump();
       },
       directToNode: function(
-          /** @type {string} */ key,
-          /** @type {any} */ value,
+          /** @type {object} */ bucket,
           /** @type {Callback} */ callback,
       ) {
-        if (!this.shuffled[key]) {
-          this.shuffled[key] = [];
+        const ks = Object.keys(bucket);
+        for (let i = 0; i < ks.length; i++) {
+          const k = ks[i];
+          if (!this.shuffled[k]) this.shuffled[k] = [];
+          const arr = bucket[k];
+          for (let j = 0; j < arr.length; j++) this.shuffled[k].push(arr[j]);
         }
-        this.shuffled[key].push(value);
         return callback(null, true);
       },
       shuffle: function(
@@ -206,6 +225,7 @@ function mr(config) {
         const mapGid = `${this.mrID}_map`;
         const group = this.group;
         const groupSids = Object.keys(group);
+        const self = this;
 
         this.shuffled = {};
 
@@ -221,57 +241,55 @@ function mr(config) {
         }
 
         return localStore.get({key: mapKey, gid: mapGid}, (e, v) => {
-          if (e) {
-            return callback(e);
-          }
+          if (e) return callback(e);
 
-            const nids = groupSids.map((groupSid) => util.id.getNID(group[groupSid]));
-            const sids = Object.fromEntries(
-              groupSids.map((groupSid) => [util.id.getNID(group[groupSid]), groupSid]),
-            );
-          const toMove = [];
+          const nids = groupSids.map((s) => util.id.getNID(group[s]));
+          const sids = Object.fromEntries(
+              groupSids.map((s) => [util.id.getNID(group[s]), s]),
+          );
 
-          (v).forEach((entry) => {
-            Object.keys(entry).forEach((k) => {
-              const kid = util.id.getID(k);
-              const targetNid = util.id.naiveHash(kid, nids);
-              const targetSid = sids[targetNid];
-              if (!targetSid) {
-                return;
-              }
-              toMove.push({node: group[targetSid], key: k, value: entry[k]});
-            });
+          const buckets = {};
+          let totalEmits = 0;
+          const mapped = v || {};
+          Object.keys(mapped).forEach((term) => {
+            const kid = util.id.getID(term);
+            const targetNid = util.id.naiveHash(kid, nids);
+            const targetSid = sids[targetNid];
+            if (!targetSid) return;
+            if (!buckets[targetSid]) buckets[targetSid] = {};
+            if (!buckets[targetSid][term]) buckets[targetSid][term] = [];
+            const arr = mapped[term];
+            for (let i = 0; i < arr.length; i++) buckets[targetSid][term].push(arr[i]);
+            totalEmits += arr.length;
           });
 
-          let idx = 0;
-          const sendNext = () => {
-            if (idx >= toMove.length) {
-              return localComm.send(['shuffle', sid], notifyRemote, (e) => {
-                if (e) {
-                  return callback(e);
-                }
-                return callback(null, toMove.length);
-              });
-            }
+          const targets = Object.keys(buckets);
+          const finishShuffle = () => {
+            return localComm.send(['shuffle', sid], notifyRemote, (e) => {
+              if (e) return callback(e);
+              return callback(null, totalEmits);
+            });
+          };
+          if (targets.length === 0) return finishShuffle();
 
-            const move = toMove[idx];
-            idx++;
-
-            const directToNodeRemote = {
-              node: move.node,
-              service: this.route,
+          let pending = targets.length;
+          let errored = false;
+          targets.forEach((targetSid) => {
+            const remote = {
+              node: group[targetSid],
+              service: self.route,
               method: 'directToNode',
               gid: 'local',
             };
-            return localComm.send([move.key, move.value], directToNodeRemote, (e) => {
-              if (e) {
-                return callback(e);
+            localComm.send([buckets[targetSid]], remote, (err) => {
+              if (errored) return;
+              if (err) {
+                errored = true;
+                return callback(err);
               }
-              return sendNext();
+              if (--pending === 0) finishShuffle();
             });
-          };
-
-          return sendNext();
+          });
         });
       },
       reduce: function(

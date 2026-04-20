@@ -272,6 +272,9 @@ function mr(config) {
           };
           if (targets.length === 0) return finishShuffle();
 
+          // Send each bucket in CHUNK_SIZE-term pages so no single HTTP PUT
+          // carries the full map output.
+          const CHUNK_SIZE = 500;
           let pending = targets.length;
           let errored = false;
           targets.forEach((targetSid) => {
@@ -281,14 +284,21 @@ function mr(config) {
               method: 'directToNode',
               gid: 'local',
             };
-            localComm.send([buckets[targetSid]], remote, (err) => {
+            const terms = Object.keys(buckets[targetSid]);
+            let ci = 0;
+            const sendNext = (err) => {
               if (errored) return;
-              if (err) {
-                errored = true;
-                return callback(err);
+              if (err) { errored = true; return callback(err); }
+              if (ci >= terms.length) {
+                if (--pending === 0) finishShuffle();
+                return;
               }
-              if (--pending === 0) finishShuffle();
-            });
+              const chunk = {};
+              const end = Math.min(ci + CHUNK_SIZE, terms.length);
+              for (; ci < end; ci++) chunk[terms[ci]] = buckets[targetSid][terms[ci]];
+              localComm.send([chunk], remote, sendNext);
+            };
+            sendNext(null);
           });
         });
       },

@@ -38,7 +38,8 @@ function processText(text) {
     counts.set(g, 1);
   }
 }
-  return Array.from(counts, ([ngram, count]) => ({ngram, count}));
+  return Array.from(counts, ([ngram, count]) => ({ngram, count}))
+      .filter(({ngram, count}) => count > 1 || !ngram.includes(' '));
 }
 
 function extractText(html) {

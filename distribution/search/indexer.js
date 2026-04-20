@@ -37,7 +37,7 @@ function run(gid, cb) {
         return {docId: docId, score: tf * idf};
       }).sort(function(a, b) { return b.score - a.score; });
       const termKey = 'tfidf_' + d.util.id.getID(key);
-      d.local.store.put(scored, {key: termKey, gid: '${gid}'}, function() {
+      d['${gid}'].store.put(scored, termKey, function() {
         done({written: 1});
       });
     })`);

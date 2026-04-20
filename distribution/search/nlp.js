@@ -19,16 +19,11 @@ function tokenize(text) {
 }
 
 function ngrams(tokens) {
-  const out = [];
-  for (let i = 0; i < tokens.length; i++) {
-    out.push(tokens[i]);
-    if (i + 1 < tokens.length) out.push(`${tokens[i]} ${tokens[i + 1]}`);
-  }
-  return out;
+  return tokens.slice();
 }
 
 function processText(text) {
-  const tokens = tokenize(text || '').slice(0, 100);
+  const tokens = tokenize(text || '').slice(0, 500);
   const grams = ngrams(tokens);
   const counts = new Map();
   for (const g of grams) {

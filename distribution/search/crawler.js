@@ -11,6 +11,7 @@ const STATE_GID = 'crawler';
 let state = null;
 let loopActive = false;
 let opts = {};
+let emptyTicks = 0;
 
 function fetchPage(url, cb) {
   let parsed;
@@ -145,8 +146,14 @@ function crawlStep(nids, group, cb) {
 
   const url = state.queue.shift();
   if (!url) {
+    emptyTicks++;
+    if (emptyTicks >= 10) {
+      loopActive = false;
+      return persist(cb);
+    }
     return setTimeout(() => crawlStep(nids, group, cb), 500);
   }
+  emptyTicks = 0;
   state.queueSet.delete(url);
 
   const kid = globalThis.distribution.util.id.getID(url);
@@ -203,6 +210,7 @@ function start(o, cb) {
 
       if (loopActive) return cb(null, {started: false, already: true});
       loopActive = true;
+      emptyTicks = 0;
       const workers = opts.workers || 8;
       for (let i = 0; i < workers; i++) {
         setImmediate(() => crawlStep(nids, group, () => {}));
@@ -231,6 +239,7 @@ function status(cb) {
 function reset(cb) {
   state = {visited: new Set(), queue: [], queueSet: new Set(), crawledCount: 0, bytes: 0, crawledUrls: []};
   loopActive = false;
+  emptyTicks = 0;
   persist(() => cb(null, {reset: true}));
 }
 

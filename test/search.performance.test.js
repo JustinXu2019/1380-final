@@ -3,8 +3,8 @@ const distribution = globalThis.distribution;
 const id = distribution.util.id;
 
 const nodes = [
-  {ip: '127.0.0.1', port: 7110},
-  {ip: '127.0.0.1', port: 7111},
+  {ip: '172.31.5.255', port: 7110},
+  {ip: '172.31.27.75', port: 7110},
 ];
 
 function buildGroupFromNodes(nodes) {
@@ -44,23 +44,19 @@ function shutdown(group, cb) {
   stopNext();
 }
 
+jest.setTimeout(3600000);
 describe('performance', () => {
   let group;
 
   beforeAll((done) => {
     group = buildGroupFromNodes(nodes);
+    distribution.node.config = {ip: '172.31.10.55', port: 7110};
     distribution.node.start((err) => {
       if (err) {
         done(err);
         return;
       }
-      distribution.local.status.spawn(nodes[0], (e) => {
-        if (e) { done(e); return; }
-        distribution.local.status.spawn(nodes[1], (e) => {
-          if (e) { done(e); return; }
-          setupGroup(group, done);
-        });
-      });
+      setupGroup(group, done);
     });
   });
 

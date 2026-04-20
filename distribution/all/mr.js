@@ -350,12 +350,19 @@ function mr(config) {
       };
 
       const waitForPhase = (stage, cb) => {
+        const TIMEOUT_MS = 30000;
+        const deadline = Date.now() + TIMEOUT_MS;
         const checkCompletion = () => {
-          const received = Object.keys(mrService.notifications[stage]).length;
+          const received = Object.keys(mrService.notifications[stage] || {}).length;
           if (received >= expected) {
             return cb();
           }
-          setTimeout(checkCompletion, 0);
+          if (Date.now() > deadline) {
+            return cleanup(new Error(
+                `mr: phase '${stage}' timed out — got ${received}/${expected} notifications`,
+            ));
+          }
+          setTimeout(checkCompletion, 50);
         };
         checkCompletion();
       };

@@ -151,7 +151,7 @@ function crawlStep(nids, group, cb) {
 
   const kid = globalThis.distribution.util.id.getID(url);
   if (state.visited.has(kid)) {
-    return setImmediate(() => crawlStep(nids, group, cb));
+    return setTimeout(() => crawlStep(nids, group, cb), 10);
   }
 
   fetchPage(url, (err, html) => {
@@ -168,13 +168,25 @@ function crawlStep(nids, group, cb) {
     const d = globalThis.distribution;
     d.search.store.put({url, text}, 'doc_' + kid, () => {
       d.search.store.put(url, 'url_' + kid, () => {
-        let pending = links.length;
-        if (pending === 0) return maybePersist(() => crawlStep(nids, group, cb));
-        links.forEach((l) => {
-          dispatchLink(l, nids, group, () => {
-            if (--pending === 0) maybePersist(() => crawlStep(nids, group, cb));
-          });
-        });
+        if (links.length === 0) return maybePersist(() => crawlStep(nids, group, cb));
+        const LINK_CONCURRENCY = 16;
+        let li = 0;
+        let linkInflight = 0;
+        let linkDone = 0;
+        const total = links.length;
+        const pumpLinks = () => {
+          while (linkInflight < LINK_CONCURRENCY && li < total) {
+            const l = links[li++];
+            linkInflight++;
+            dispatchLink(l, nids, group, () => {
+              linkInflight--;
+              linkDone++;
+              if (linkDone === total) maybePersist(() => crawlStep(nids, group, cb));
+              else pumpLinks();
+            });
+          }
+        };
+        pumpLinks();
       });
     });
   });

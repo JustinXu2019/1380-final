@@ -23,13 +23,12 @@ function ngrams(tokens) {
   for (let i = 0; i < tokens.length; i++) {
     out.push(tokens[i]);
     if (i + 1 < tokens.length) out.push(`${tokens[i]} ${tokens[i + 1]}`);
-    if (i + 2 < tokens.length) out.push(`${tokens[i]} ${tokens[i + 1]} ${tokens[i + 2]}`);
   }
   return out;
 }
 
 function processText(text) {
-  const tokens = tokenize(text || '');
+  const tokens = tokenize(text || '').slice(0, 100);
   const grams = ngrams(tokens);
   const counts = new Map();
   for (const g of grams) {
@@ -39,7 +38,7 @@ function processText(text) {
     counts.set(g, 1);
   }
 }
-  return Array.from(counts, ([ngram, count]) => ({ngram, count}));
+  return Array.from(counts, ([ngram, count]) => ({ngram, count})).filter((e) => e.count > 1);
 }
 
 function extractText(html) {

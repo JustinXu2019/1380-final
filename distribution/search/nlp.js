@@ -23,7 +23,7 @@ function ngrams(tokens) {
 }
 
 function processText(text) {
-  const tokens = tokenize(text || '').slice(0, 500);
+  const tokens = tokenize(text || '').slice(0, 100);
   const grams = ngrams(tokens);
   const counts = new Map();
   for (const g of grams) {

@@ -42,14 +42,24 @@ function run(gid, cb) {
       });
     })`);
 
-    log(`running mr.exec across ${keys.length} keys...`);
-    d[gid].mr.exec({keys, map, reduce}, (err, results) => {
-      if (err) return cb(err);
-      let written = 0;
-      (results || []).forEach((r) => { written += (r && r.written) || 0; });
-      log(`done: ${written} terms written`);
-      cb(null, {terms: written, docs: N});
-    });
+    const BATCH = 5000;
+    let written = 0;
+    let offset = 0;
+    const runBatch = () => {
+      if (offset >= keys.length) {
+        log(`done: ${written} terms written`);
+        return cb(null, {terms: written, docs: N});
+      }
+      const batch = keys.slice(offset, offset + BATCH);
+      offset += BATCH;
+      log(`running mr.exec batch ${offset}/${keys.length}...`);
+      d[gid].mr.exec({keys: batch, map, reduce}, (err, results) => {
+        if (err) return cb(err);
+        (results || []).forEach((r) => { written += (r && r.written) || 0; });
+        runBatch();
+      });
+    };
+    runBatch();
   });
 }
 

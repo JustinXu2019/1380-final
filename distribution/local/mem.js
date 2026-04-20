@@ -9,7 +9,7 @@
  * @typedef {StoreConfig | string | null} SimpleConfig
  */
 
-const id = distribution.util.id;
+const id = globalThis.distribution.util.id;
 const localmap = {};
 
 /**

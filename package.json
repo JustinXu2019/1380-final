@@ -27,6 +27,8 @@
   "license": "ISC",
   "dependencies": {
     "@brown-ds/distribution": "^0.2.30",
+    "html-to-text": "^9.0.5",
+    "natural": "^6.12.0",
     "yargs": "^17.7.2"
   },
   "report": [

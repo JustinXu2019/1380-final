@@ -23,7 +23,6 @@ function ngrams(tokens) {
   for (let i = 0; i < tokens.length; i++) {
     out.push(tokens[i]);
     if (i + 1 < tokens.length) out.push(`${tokens[i]} ${tokens[i + 1]}`);
-    if (i + 2 < tokens.length) out.push(`${tokens[i]} ${tokens[i + 1]} ${tokens[i + 2]}`);
   }
   return out;
 }

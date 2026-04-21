@@ -10,10 +10,10 @@ const stopwords = new Set(
 const stemmer = natural.PorterStemmer;
 
 function tokenize(text) {
-  return text
+  return (text.length > 8000 ? text.slice(0, 8000) : text)
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-zA-Z]/g, '\n').toLowerCase()
-      .split('\n').filter(Boolean)
+      .split('\n').filter((w) => w && w.length >= 3 && w.length <= 20)
       .filter((w) => !stopwords.has(w))
       .map((w) => stemmer.stem(w));
 }
@@ -23,23 +23,24 @@ function ngrams(tokens) {
   for (let i = 0; i < tokens.length; i++) {
     out.push(tokens[i]);
     if (i + 1 < tokens.length) out.push(`${tokens[i]} ${tokens[i + 1]}`);
+    if (i + 2 < tokens.length) out.push(`${tokens[i]} ${tokens[i + 1]} ${tokens[i + 2]}`);
   }
   return out;
 }
 
 function processText(text) {
   const tokens = tokenize(text || '');
-  const grams = ngrams(tokens);
   const counts = new Map();
-  for (const g of grams) {
-  if (counts.has(g)) {
-    counts.set(g, counts.get(g) + 1);
-  } else {
-    counts.set(g, 1);
+  for (const t of tokens) {
+    counts.set(t, (counts.get(t) || 0) + 1);
   }
-}
-  return Array.from(counts, ([ngram, count]) => ({ngram, count}))
-      .filter(({ngram, count}) => count > 1 || !ngram.includes(' '));
+  const result = Array.from(counts, ([ngram, count]) => ({ngram, count}))
+      .filter(({count}) => count > 1);
+  if (result.length > 40) {
+    result.sort((a, b) => b.count - a.count);
+    result.length = 40;
+  }
+  return result;
 }
 
 function extractText(html) {
@@ -72,7 +73,7 @@ function extractLinks(html, baseUrl) {
 }
 
 function processQuery(q) {
-  return ngrams(tokenize(q || ''));
+  return tokenize(q || '');
 }
 
 module.exports = {processText, processQuery, extractText, extractLinks, tokenize};

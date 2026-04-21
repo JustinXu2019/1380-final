@@ -127,6 +127,80 @@ distribution.node.start(() => {
   });
 });
 ```
+# Running Performance Tests on AWS
+
+## Prerequisites
+
+- EC2 instances with port `7110` open in the security group inbound rules
+- Code cloned on all nodes (branch code):
+
+```bash
+  git clone -b nlp-optimizations https://github.com/JustinXu2019/1380-final.git
+  cd 1380-final
+  npm install
+```
+
+## Worker Nodes (all nodes except orchestrator)
+
+Get the private IP:
+
+```bash
+hostname -I | awk '{print $1}'
+```
+
+Start the node listener:
+
+```bash
+node distribution.js --ip <private-ip> --port 7110
+```
+
+Keep this process running. Do this on every worker node before starting the orchestrator.
+
+## Orchestrator Node
+
+Get the private IP:
+
+```bash
+hostname -I | awk '{print $1}'
+```
+
+In `test/search.performance.test.js`, update two things:
+
+1. Add all worker node private IPs to the `nodes` array:
+
+```js
+   const nodes = [
+     {ip: '<worker-1-private-ip>', port: 7110},
+     {ip: '<worker-2-private-ip>', port: 7110},
+     // add more as needed
+   ];
+```
+
+2. Set the orchestrator's own private IP in `beforeAll`:
+
+```js
+   distribution.node.config = {ip: '<orchestrator-private-ip>', port: 7110};
+```
+
+Run the test:
+
+```bash
+npx jest test/search.performance.test.js
+```
+
+## Crawl Size
+
+In `test/search.performance.test.js`, the `maxPages` variable controls how many pages to crawl:
+
+```js
+const maxPages = 100;
+```
+
+## Notes
+
+- Always use private IPs, not public IPs
+- All worker nodes must be running before starting the orchestrator
+- If a worker crashes mid-test (`ECONNRESET`), restart it and rerun the test
 
 # Results and Reflections
 

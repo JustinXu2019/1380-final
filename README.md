@@ -127,6 +127,25 @@ distribution.node.start(() => {
   });
 });
 ```
+# Running M6 Locally
+
+Run the orchestrator with one of the available commands:
+
+```bash
+node orchestrator.js crawl --nodes <n> --max-pages <n>
+node orchestrator.js index
+node orchestrator.js query --q <query> 
+```
+
+**Examples:**
+
+```bash
+node orchestrator.js crawl --nodes 3 --max-pages 100
+node orchestrator.js query --q "chicken tikka"
+```
+
+Workers are spawned automatically on `127.0.0.1` ports `8000+`.
+
 # Running Performance Tests on AWS
 
 ## Prerequisites
